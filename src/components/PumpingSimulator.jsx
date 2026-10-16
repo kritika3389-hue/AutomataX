@@ -3,6 +3,7 @@ import { PUMPING_PRESETS, refreshPumpingPresets } from '../pumping/pumping-prese
 import { PumpingEngine } from '../pumping/pumping-engine.js';
 import { PumpingVisualizer } from '../pumping/pumping-visualizer.js';
 import Icon from './Icon.jsx';
+import './PumpingSimulator.css';
 
 export default function PumpingSimulator({
   onToast,
