@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FLA Studio - Pushdown Automata & CFL Pumping Lemma Simulator</title>
+    <meta name="description" content="Interactive Formal Languages and Automata Simulator for Pushdown Automata (PDA) tracing and Context-Free Language Pumping Lemma proofs." />
+    
+    <!-- Google Fonts: Outfit, Inter, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- KaTeX for beautiful math notation -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+
+    <!-- Canvas Confetti for winning proofs -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="./src/style.css">
+  </head>
+  <body>
+    <!-- App Navigation Header -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-logo-badge">δ</div>
+        <div class="brand-title">
+          <h1>FLA Studio</h1>
+          <p>Formal Languages & Automata Theory Simulator</p>
+        </div>
+      </div>
+
+      <!-- Module Switcher Tabs -->
+      <nav class="header-tabs" role="tablist">
+        <button id="tab-btn-pda" class="tab-btn active" role="tab" aria-selected="true" data-tab="tab-pda">
+          <span class="tab-icon">⚙</span>
+          <span>PDA Simulator & Tracer</span>
+          <span class="tab-badge">0ⁿ 1²ⁿ</span>
+        </button>
+        <button id="tab-btn-pumping" class="tab-btn" role="tab" aria-selected="false" data-tab="tab-pumping">
+          <span class="tab-icon">⚡</span>
+          <span>CFL Pumping Lemma</span>
+          <span class="tab-badge">0ⁿ 1ⁿ 2ⁿ</span>
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <button id="btn-theory-guide" class="btn-ghost">
+          <span>📖</span> Theory Guide
+        </button>
+        <button id="btn-open-proof-modal" class="btn-ghost">
+          <span>📝</span> Formal Proof
+        </button>
+      </div>
+    </header>
+
+    <main class="app-container">
+      
+      <!-- =================================================================
+           TAB 1: PUSHDOWN AUTOMATA (PDA) SIMULATOR & TRACER
+           ================================================================= -->
+      <section id="tab-pda" class="tab-content active" role="tabpanel">
+        
+        <!-- Problem Bar (Single-Row Clean Toolbar) -->
+        <div class="problem-card compact-problem-bar">
+          <div class="problem-info">
+            <span class="tag-badge">PDA</span>
+            <h2 class="problem-title" id="pda-language-title">Construct PDA for L = {0ⁿ 1²ⁿ | n ≥ 1}</h2>
+            <p class="problem-desc" id="pda-language-desc" style="display: none;">Pushes two stack symbols for each '0' read, pops one symbol for each '1' read.</p>
+          </div>
+          
+          <div class="problem-controls">
+            <select id="pda-preset-select" class="styled-select" aria-label="Select Problem Preset">
+              <!-- Dynamically populated -->
+            </select>
+            <button id="btn-open-custom-pda-modal" class="btn-primary">
+              ➕ Custom PDA
+            </button>
+          </div>
+        </div>
+
+        <!-- Main PDA Workspace Layout: Unified 3-Column Dashboard -->
+        <div class="pda-layout-grid">
+          
+          <!-- Column 1: Input Tape + State Transition Graph + Playback Controls -->
+          <div class="pda-main-column">
+            
+            <!-- Input Tape Section -->
+            <div class="tape-container">
+              <div class="tape-header-row">
+                <div class="tape-input-group">
+                  <label for="pda-input-string" class="tape-label">w:</label>
+                  <input type="text" id="pda-input-string" class="mono-input" value="001111" placeholder="e.g. 001111">
+                  <button id="btn-trace-input" class="btn-primary">▶ Trace</button>
+                  <button id="btn-load-target-str" class="btn-secondary" title="Load target string 001111">001111</button>
+                  <button id="btn-add-test-case" class="btn-secondary" title="Save this string as a test case">+ Test</button>
+                </div>
+                
+                <div class="acceptance-mode-badge" id="pda-accept-mode-tag">
+                  Accept: Final (F)
+                </div>
+              </div>
+
+              <!-- Animated Tape Strip -->
+              <div class="tape-strip" id="tape-cells-container">
+                <!-- Tape cells with moving head pointer -->
+              </div>
+            </div>
+
+            <!-- SVG Transition Diagram -->
+            <div class="glass-panel">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <span class="icon">◎</span>
+                  <span>State Transition Graph</span>
+                </div>
+                <div class="state-legend" style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 0.65rem;">
+                  <span><b style="color: var(--accent-cyan);">Blue:</b> Active</span>
+                  <span><b style="color: var(--accent-emerald);">Double:</b> Accept</span>
+                </div>
+              </div>
+
+              <div class="diagram-wrapper">
+                <svg id="pda-diagram-svg" class="diagram-svg">
+                  <!-- Nodes, edges, self loops -->
+                </svg>
+              </div>
+
+              <!-- Playback Controls -->
+              <div class="playback-controls">
+                <div class="control-buttons">
+                  <button id="ctrl-reset" class="ctrl-btn" title="Reset (R)">|◀</button>
+                  <button id="ctrl-step-back" class="ctrl-btn" title="Step Back (Left Arrow)">◀</button>
+                  <button id="ctrl-play-pause" class="ctrl-btn btn-play" title="Play / Pause (Space)">▶</button>
+                  <button id="ctrl-step-forward" class="ctrl-btn" title="Step Forward (Right Arrow)">▶|</button>
+                  <button id="ctrl-run-end" class="ctrl-btn" title="Run to End">⚡</button>
+                </div>
+
+                <div class="speed-control">
+                  <span>Speed:</span>
+                  <select id="pda-speed-select" class="speed-select">
+                    <option value="1200">0.5x</option>
+                    <option value="600" selected>1.0x</option>
+                    <option value="300">2.0x</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Column 2: Animated Stack Tube & Instantaneous Description -->
+          <div class="stack-visualizer-panel">
+            <div class="glass-panel" style="height: 100%; display: flex; flex-direction: column;">
+              <div class="panel-header" style="flex-shrink: 0;">
+                <div class="panel-title" style="white-space: nowrap;">
+                  <span class="icon">▤</span>
+                  <span>Stack</span>
+                </div>
+                <span id="stack-count-badge" class="tag-badge" style="font-size: 0.65rem; padding: 0.08rem 0.4rem; white-space: nowrap;">Size: 1</span>
+              </div>
+
+              <!-- Glassmorphic Stack Cylinder -->
+              <div class="stack-tube-outer" style="flex: 1;">
+                <div class="stack-tube" id="stack-tube-elements">
+                  <!-- Animated stack elements -->
+                </div>
+              </div>
+
+              <!-- Instantaneous Description Card -->
+              <div class="id-status-card" style="flex-shrink: 0;">
+                <div class="id-label">Current (q, w, γ):</div>
+                <div id="pda-current-id-text" class="current-id-text">(q₀, "001111", [Z₀])</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 3: Complete Step-by-Step Execution Trace Table -->
+          <div class="trace-visualizer-panel">
+            <div class="glass-panel trace-section" style="height: 100%; display: flex; flex-direction: column;">
+              <div class="panel-header" style="flex-shrink: 0;">
+                <div class="panel-title">
+                  <span class="icon">📋</span>
+                  <span>Execution Trace</span>
+                </div>
+                <button id="btn-copy-trace" class="btn-ghost" title="Copy trace for assignments" style="padding: 0.2rem 0.45rem; font-size: 0.72rem;">
+                  📋 Copy
+                </button>
+              </div>
+
+              <div class="table-wrapper" style="flex: 1; overflow-y: auto;">
+                <table class="trace-table" id="pda-trace-table">
+                  <thead>
+                    <tr>
+                      <th class="col-step">#</th>
+                      <th class="col-state">State</th>
+                      <th class="col-input">Input</th>
+                      <th class="col-stack">Stack</th>
+                      <th class="col-action">Rule / Action</th>
+                      <th class="col-status">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pda-trace-tbody">
+                    <!-- Dynamically populated trace rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Test Suite / Batch Tester -->
+        <div class="glass-panel test-suite-panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="icon">🧪</span>
+              <span>Test Suite & Edge Cases for L = {0ⁿ 1²ⁿ | n ≥ 1}</span>
+            </div>
+            <button id="btn-run-all-tests" class="btn-primary">
+              <span>⚡</span> Run All Test Cases
+            </button>
+          </div>
+
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Click on any test case to immediately load and trace it in the simulator.
+          </p>
+
+          <div class="test-grid" id="pda-test-grid">
+            <!-- Test cards -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- =================================================================
+           TAB 2: CFL PUMPING LEMMA PROOF & ADVERSARY LAB
+           ================================================================= -->
+      <section id="tab-pumping" class="tab-content" role="tabpanel">
+        
+        <!-- Pumping Lemma Problem Card -->
+        <div class="problem-card compact-problem-bar">
+          <div class="problem-info">
+            <span class="tag-badge">CFL Pumping Lemma</span>
+            <h2 class="problem-title">Prove L = {0ⁿ 1ⁿ 2ⁿ | n ≥ 1} is Not Context-Free</h2>
+          </div>
+
+          <div class="problem-controls">
+            <select id="pumping-preset-select" class="styled-select" aria-label="Target Non-CFL Language">
+              <!-- Preset choices -->
+            </select>
+            <button id="btn-open-custom-pumping-modal" class="btn-primary">
+              ➕ Custom CFL Question
+            </button>
+          </div>
+        </div>
+
+        <div class="pumping-grid">
+          
+          <!-- Left Column: Ribbon, Sliders, Pumping Factor, Result -->
+          <div class="pumping-main-column">
+            
+            <div class="glass-panel">
+              <!-- Quick Custom String Bar -->
+              <div class="quick-string-bar">
+                <label for="pumping-custom-string-input">Input Your Own String (s):</label>
+                <input type="text" id="pumping-custom-string-input" class="mono-input" style="flex: 1;" placeholder="Enter custom string e.g. 000011112222 or aaabbbccc" value="000111222">
+                <button id="btn-apply-custom-pumping-str" class="btn-primary">Apply String</button>
+              </div>
+
+              <div class="panel-header">
+                <div class="panel-title">
+                  <span class="icon">✂</span>
+                  <span>Step 1: Choose Pumping Length p & Partition s = uvwxy</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="font-size: 0.85rem; color: var(--text-muted);">Pumping Length <b>p</b>:</span>
+                  <button class="btn-i-chip p-btn" data-p="2">p = 2</button>
+                  <button class="btn-i-chip p-btn active" data-p="3">p = 3</button>
+                  <button class="btn-i-chip p-btn" data-p="4">p = 4</button>
+                </div>
+              </div>
+
+              <!-- Interactive String Partition Ribbon -->
+              <div class="ribbon-wrapper">
+                <div id="pumping-ribbon-container">
+                  <!-- Ribbon characters and sliders -->
+                </div>
+              </div>
+
+              <!-- Length Indicators and Conditions -->
+              <div class="pumping-meta-row">
+                <div class="lengths-display" id="pumping-lengths-display">
+                  <!-- Segment lengths pills -->
+                </div>
+
+                <div class="conditions-box">
+                  <div id="cond-1-badge" class="cond-badge cond-pass">✓ |vwx| ≤ p</div>
+                  <div id="cond-2-badge" class="cond-badge cond-pass">✓ |vx| ≥ 1</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pumping Action Box -->
+            <div class="glass-panel" style="margin-top: 1.5rem;">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <span class="icon">⚡</span>
+                  <span>Step 2: Pump String sᵢ = uvⁱwxⁱy</span>
+                </div>
+                <div class="i-quick-buttons">
+                  <button class="btn-i-chip i-btn" data-i="0">i = 0 (Pump Down)</button>
+                  <button class="btn-i-chip i-btn" data-i="1">i = 1 (Original s)</button>
+                  <button class="btn-i-chip i-btn active" data-i="2">i = 2 (Pump Up 2x)</button>
+                  <button class="btn-i-chip i-btn" data-i="3">i = 3 (Pump Up 3x)</button>
+                </div>
+              </div>
+
+              <div class="slider-group-i">
+                <label for="pump-i-slider" style="font-weight: 600; font-size: 0.9rem;">Pumping Multiplier (i):</label>
+                <input type="range" id="pump-i-slider" min="0" max="5" value="2" style="flex: 1; accent-color: var(--accent-cyan); cursor: pointer;">
+                <span class="slider-i-val" id="pump-i-value">2</span>
+              </div>
+
+              <!-- Pumped String Viewer -->
+              <div class="pumped-string-viewer">
+                <div class="pumped-string-title">Resulting Pumped String sᵢ:</div>
+                <div class="pumped-string-tokens" id="pumped-string-tokens">
+                  <!-- Pumped string with visual segments -->
+                </div>
+              </div>
+
+              <!-- Contradiction / Result Banner -->
+              <div id="pumping-result-banner" class="result-banner result-contradiction">
+                <!-- Dynamically generated contradiction info -->
+              </div>
+
+              <!-- Case Analysis Box -->
+              <div id="pumping-case-analysis" style="margin-top: 1rem;">
+                <!-- Detailed explanation of why current partition fails -->
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Column: Symbol Frequency Balancer & Adversary Mode -->
+          <div class="pumping-side-column">
+            
+            <!-- Balance Meters Card -->
+            <div class="balance-meters-card">
+              <div class="panel-header" style="margin-bottom: 0.5rem;">
+                <div class="panel-title">
+                  <span class="icon">📊</span>
+                  <span>Symbol Count Balance</span>
+                </div>
+              </div>
+              <p style="font-size: 0.78rem; color: var(--text-muted);">
+                Language requires <b>N₀ = N₁ = N₂</b>. Notice how pumping causes an unavoidable imbalance!
+              </p>
+
+              <div class="balance-bars-track" id="pumping-balance-bars">
+                <!-- Bars for 0, 1, 2 -->
+              </div>
+            </div>
+
+            <!-- Adversary Game Mode Card -->
+            <div class="adversary-game-card">
+              <div class="panel-title" style="color: #d8b4fe;">
+                <span class="icon">⚔</span>
+                <span>The Adversary Game</span>
+              </div>
+              
+              <div class="adversary-steps">
+                <div class="adversary-step">
+                  <span class="step-num">1</span>
+                  <span>Adversary claims L is CFL and gives pumping length p = 3.</span>
+                </div>
+                <div class="adversary-step">
+                  <span class="step-num">2</span>
+                  <span>You choose string s = 000111222 ∈ L with |s| ≥ 3.</span>
+                </div>
+                <div class="adversary-step">
+                  <span class="step-num">3</span>
+                  <span>Adversary picks partition s = uvwxy (|vwx| ≤ p, |vx| ≥ 1).</span>
+                </div>
+                <div class="adversary-step">
+                  <span class="step-num">4</span>
+                  <span>You select i (usually 2 or 0) to force sᵢ ∉ L!</span>
+                </div>
+              </div>
+
+              <button id="btn-adversary-challenge" class="btn-game-challenge">
+                ⚔ Test All Adversary Partitions
+              </button>
+              
+              <div id="adversary-summary-box" style="margin-top: 0.85rem; font-size: 0.8rem; color: var(--text-muted); display: none;">
+                <!-- Result of exhaustive simulation -->
+              </div>
+            </div>
+
+            <!-- Quick Formal Proof Trigger -->
+            <div class="glass-panel" style="text-align: center;">
+              <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem;">Need to submit this proof?</h4>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.85rem;">
+                View and copy the rigorous 5-step formal proof in textbook format or LaTeX.
+              </p>
+              <button id="btn-open-full-proof" class="btn-primary" style="width: 100%; justify-content: center;">
+                📄 Open Formal Mathematical Proof
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- =================================================================
+         MODAL: FORMAL PROOF VIEWER & LATEX EXPORTER
+         ================================================================= -->
+    <div id="formal-proof-modal" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title" id="proof-modal-title">Formal Proof by Pumping Lemma</h3>
+          <button id="btn-close-proof-modal" class="btn-ghost" style="padding: 0.3rem 0.6rem;">✕</button>
+        </div>
+        <div class="modal-body" id="proof-modal-content">
+          <!-- Rendered proof with math -->
+        </div>
+        <div class="modal-footer">
+          <button id="btn-copy-proof-markdown" class="btn-secondary">
+            📋 Copy Markdown
+          </button>
+          <button id="btn-copy-proof-latex" class="btn-primary">
+            📋 Copy LaTeX
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================
+         MODAL: THEORY GUIDE & CHEAT SHEET
+         ================================================================= -->
+    <div id="theory-guide-modal" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">FLA Subject Reference & Theory Guide</h3>
+          <button id="btn-close-theory-modal" class="btn-ghost" style="padding: 0.3rem 0.6rem;">✕</button>
+        </div>
+        <div class="modal-body">
+          <h3>1. Pushdown Automata (PDA)</h3>
+          <p>
+            A Pushdown Automaton is a 7-tuple: <code>M = (Q, Σ, Γ, δ, q₀, Z₀, F)</code>
+          </p>
+          <ul>
+            <li><b>Q:</b> Finite set of states</li>
+            <li><b>Σ:</b> Finite set of input symbols (input alphabet)</li>
+            <li><b>Γ:</b> Finite set of stack symbols (stack alphabet)</li>
+            <li><b>δ:</b> Transition function <code>Q × (Σ ∪ {ε}) × Γ → P(Q × Γ*)</code></li>
+            <li><b>q₀ ∈ Q:</b> Start state</li>
+            <li><b>Z₀ ∈ Γ:</b> Initial stack symbol</li>
+            <li><b>F ⊆ Q:</b> Set of accepting / final states</li>
+          </ul>
+
+          <h3 style="margin-top: 1rem;">2. Instantaneous Description (ID)</h3>
+          <p>
+            The configuration of a PDA at any step is denoted by a triplet <code>(q, w, γ)</code>, where:
+          </p>
+          <ul>
+            <li><b>q:</b> Current state</li>
+            <li><b>w:</b> Remaining unread portion of the input string</li>
+            <li><b>γ:</b> Complete contents of the pushdown stack (from top to bottom)</li>
+          </ul>
+          <p>A transition is denoted by the turnstile symbol <code>⊢</code>.</p>
+
+          <h3 style="margin-top: 1rem;">3. Pumping Lemma for Context-Free Languages</h3>
+          <p>
+            If <i>L</i> is context-free, there exists <i>p ≥ 1</i> such that any string <i>s ∈ L</i> with <i>|s| ≥ p</i> can be written as <i>s = uvwxy</i> where:
+          </p>
+          <ul>
+            <li><code>|vwx| ≤ p</code> (The window vwx spans at most p characters)</li>
+            <li><code>|vx| ≥ 1</code> (At least one of v or x is non-empty)</li>
+            <li><code>∀ i ≥ 0, uvⁱwxⁱy ∈ L</code> (Pumping v and x must stay inside L)</li>
+          </ul>
+          <p>
+            To prove a language is <b>not context-free</b>, we show that <i>every</i> possible partition violating this condition leads to a contradiction for some <i>i</i> (usually <i>i = 2</i> or <i>i = 0</i>).
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-close-theory-footer" class="btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================
+         MODAL: CUSTOM PDA BUILDER
+         ================================================================= -->
+    <div id="custom-pda-modal" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal-content" style="max-width: 900px;">
+        <div class="modal-header">
+          <h3 class="modal-title">Create / Edit Custom Pushdown Automaton (PDA)</h3>
+          <button id="btn-close-custom-pda" class="btn-ghost" style="padding: 0.3rem 0.6rem;">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group" style="flex: 2;">
+              <label class="form-label" for="custom-pda-name">Question Title / Language Name</label>
+              <input type="text" id="custom-pda-name" class="form-input" value="L = {0ⁿ 1³ⁿ | n ≥ 1}">
+              <div class="form-hint">E.g., L = {0ⁿ 1³ⁿ | n ≥ 1} or L = {aⁿ bᵐ | n > m}</div>
+            </div>
+            <div class="form-group" style="flex: 1;">
+              <label class="form-label" for="custom-pda-default-input">Default Input String (w)</label>
+              <input type="text" id="custom-pda-default-input" class="form-input" value="00111111">
+              <div class="form-hint">Initial string loaded on tape</div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="custom-pda-states">States (comma-separated)</label>
+              <input type="text" id="custom-pda-states" class="form-input" value="q0, q1, q2">
+              <div class="form-hint">E.g., q0, q1, q2</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="custom-pda-start-state">Start State</label>
+              <input type="text" id="custom-pda-start-state" class="form-input" value="q0">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="custom-pda-accept-states">Accept State(s)</label>
+              <input type="text" id="custom-pda-accept-states" class="form-input" value="q2">
+              <div class="form-hint">Comma separated if multiple</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="custom-pda-accept-mode">Acceptance Mode</label>
+              <select id="custom-pda-accept-mode" class="form-select">
+                <option value="state">Final State</option>
+                <option value="empty">Empty Stack</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Transitions Rules Editor -->
+          <div style="margin-top: 1rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+              <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--accent-cyan);">
+                Transition Rules: δ(Current State, Input, Pop) → (Next State, Push)
+              </h4>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <label style="font-size: 0.78rem; color: var(--text-muted);">Quick Template:</label>
+                <select id="custom-pda-template-select" class="form-select" style="width: auto; padding: 0.3rem 0.6rem; font-size: 0.8rem;">
+                  <option value="">-- Choose Template --</option>
+                  <option value="template_0n1n">L = {0ⁿ 1ⁿ} (Equal counts)</option>
+                  <option value="template_0n1_2n">L = {0ⁿ 1²ⁿ} (Double push)</option>
+                  <option value="template_0n1_3n">L = {0ⁿ 1³ⁿ} (Triple push)</option>
+                  <option value="template_0_2n1n">L = {0²ⁿ 1ⁿ} (Half ones)</option>
+                  <option value="template_wcwr">L = {w c wᴿ} (Palindrome)</option>
+                  <option value="template_parens">Balanced Parentheses ( )</option>
+                </select>
+                <button type="button" id="btn-add-pda-rule" class="btn-secondary" style="padding: 0.35rem 0.75rem;">
+                  ➕ Add Rule
+                </button>
+              </div>
+            </div>
+
+            <div style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+              <table class="transition-editor-table">
+                <thead>
+                  <tr>
+                    <th style="width: 18%;">From State</th>
+                    <th style="width: 18%;">Read Input (a or ε)</th>
+                    <th style="width: 18%;">Pop Stack (X)</th>
+                    <th style="width: 18%;">To State</th>
+                    <th style="width: 20%;">Push Stack (e.g. XX, ε)</th>
+                    <th style="width: 8%;"></th>
+                  </tr>
+                </thead>
+                <tbody id="custom-pda-rules-tbody">
+                  <!-- Dynamic Rule Rows -->
+                </tbody>
+              </table>
+            </div>
+            <div class="form-hint" style="margin-top: 0.4rem;">
+              Tip: Use <b>ε</b> for empty string. In "Push Stack", write symbols left-to-right with leftmost symbol being the new stack top (e.g. <code>XX</code> or <code>ε</code> to pop).
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-cancel-custom-pda" class="btn-secondary">Cancel</button>
+          <button id="btn-save-custom-pda" class="btn-primary">💾 Save & Run Custom Machine</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================
+         MODAL: CUSTOM CFL PUMPING LEMMA QUESTION
+         ================================================================= -->
+    <div id="custom-pumping-modal" class="modal-overlay" role="dialog" aria-modal="true">
+      <div class="modal-content" style="max-width: 650px;">
+        <div class="modal-header">
+          <h3 class="modal-title">Create Custom CFL Pumping Lemma Question</h3>
+          <button id="btn-close-custom-pumping" class="btn-ghost" style="padding: 0.3rem 0.6rem;">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="custom-pumping-name">Question Title / Language Formula</label>
+            <input type="text" id="custom-pumping-name" class="form-input" value="L = {aⁿ b²ⁿ cⁿ | n ≥ 1}">
+            <div class="form-hint">E.g., L = {aⁿ b²ⁿ cⁿ | n ≥ 1} or L = {0ⁿ 1³ⁿ 2ⁿ} or L = {w w}</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="custom-pumping-string">Your Test String (s)</label>
+            <input type="text" id="custom-pumping-string" class="form-input mono-input" value="aaabbbbbbccc">
+            <div class="form-hint">Type any custom string in the language to partition and pump!</div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="custom-pumping-p">Pumping Length (p)</label>
+              <input type="number" id="custom-pumping-p" class="form-input" min="1" max="10" value="3">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="custom-pumping-rule">Membership Condition Rule</label>
+              <select id="custom-pumping-rule" class="form-select">
+                <option value="equal_counts">Equal Counts of All Symbols (e.g. Na = Nb = Nc)</option>
+                <option value="ratio">Ratio: Double Second Symbol (e.g. Nb = 2 × Na)</option>
+                <option value="ww">String Duplication (w w - First half equals second half)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-cancel-custom-pumping" class="btn-secondary">Cancel</button>
+          <button id="btn-save-custom-pumping" class="btn-primary">💾 Save & Load Custom Language</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Script Entry -->
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
