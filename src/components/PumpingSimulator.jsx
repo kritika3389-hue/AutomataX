@@ -108,12 +108,30 @@ export default function PumpingSimulator({
   const handleApplyCustomString = () => {
     const val = customStringInput.trim();
     if (!val || !engineRef.current) return;
+
+    if (!initialStringValidity.isValid) {
+      onToast(`Cannot apply: ${initialStringValidity.errorTitle}! ${initialStringValidity.message}`, '✕');
+      return;
+    }
+
     engineRef.current.setCustomString(val);
     syncPumpingView();
     if (onPumpingPresetChange) {
       onPumpingPresetChange(currentPreset, val);
     }
-    onToast(`Applied custom string: "${val}"`, '✓');
+    onToast(`Applied valid starting string: "${val}"`, '✓');
+  };
+
+  const handleResetDefaultString = () => {
+    if (!engineRef.current) return;
+    const defaultStr = currentPreset.generateString(currentP);
+    setCustomStringInput(defaultStr);
+    engineRef.current.setCustomString(defaultStr);
+    syncPumpingView();
+    if (onPumpingPresetChange) {
+      onPumpingPresetChange(currentPreset, defaultStr);
+    }
+    onToast(`Restored valid default string: "${defaultStr}"`, '✓');
   };
 
   const handleSetP = (pVal) => {
@@ -171,28 +189,54 @@ export default function PumpingSimulator({
 
   const initialStringValidity = useMemo(() => {
     const val = customStringInput.trim();
-    if (!val) return { isValid: false, inLang: false, message: 'Please enter a test string.' };
+    if (!val) {
+      return {
+        isValid: false,
+        inLang: false,
+        errorTitle: 'Empty String (ε)',
+        message: 'Empty string is not valid. The CFL Pumping Lemma requires a non-empty starting string s ∈ L with |s| ≥ p.'
+      };
+    }
+
+    // Check alphabet
+    const allowed = currentPreset.alphabet || ['0', '1', '2'];
+    const invalidChar = val.split('').find(ch => !allowed.includes(ch));
+    if (invalidChar) {
+      return {
+        isValid: false,
+        inLang: false,
+        errorTitle: `Illegal Symbol '${invalidChar}' ∉ Σ`,
+        message: `Incorrect string: Symbol '${invalidChar}' is not in alphabet Σ = {${allowed.join(', ')}}. String does not belong to language.`
+      };
+    }
+
     const membership = currentPreset.checkMembership ? currentPreset.checkMembership(val) : { inLang: true, reason: 'Valid string' };
     const len = val.length;
     const p = currentP;
     const isLenOk = len >= p;
+
     if (!membership.inLang) {
       return {
         isValid: false,
         inLang: false,
-        message: `String s = "${val}" does not belong to ${currentPreset.name} (${membership.reason}). Pumping Lemma requires starting with s ∈ L!`
+        errorTitle: 'Incorrect String (s ∉ L)',
+        message: `Incorrect string: s = "${val}" does not satisfy ${currentPreset.name} (${membership.reason}). Pumping Lemma requires starting with a valid string s ∈ L!`
       };
     }
+
     if (!isLenOk) {
       return {
         isValid: false,
         inLang: true,
-        message: `String length |s| = ${len} is shorter than pumping length p = ${p}. Pumping Lemma requires |s| ≥ p to guarantee parse tree repetition.`
+        errorTitle: `Incorrect Length (|s| < p)`,
+        message: `Incorrect length: String length |s| = ${len} is shorter than pumping length p = ${p}. Pumping Lemma requires |s| ≥ p to guarantee parse tree height repetition.`
       };
     }
+
     return {
       isValid: true,
       inLang: true,
+      errorTitle: null,
       message: `Valid starting string: s = "${val}" ∈ L with length |s| = ${len} ≥ p (${p}). Ready to partition into uvwxy!`
     };
   }, [customStringInput, currentPreset, currentP]);
@@ -251,22 +295,33 @@ export default function PumpingSimulator({
                 <span className="step-badge">1</span>
                 <span>Choose string &amp; partition s = uvwxy</span>
               </div>
-              <div className="segmented" role="group" aria-label="Pumping length">
-                <span className="segmented-label">p</span>
-                {[2, 3, 4].map(pVal => (
-                  <button
-                    key={pVal}
-                    className={`segmented-btn p-btn ${currentP === pVal ? 'active' : ''}`}
-                    onClick={() => handleSetP(pVal)}
-                  >
-                    {pVal}
-                  </button>
-                ))}
+              <div className="step1-header-actions">
+                {initialStringValidity.isValid ? (
+                  <span className="chip chip-success" id="pumping-string-status-badge">
+                    ✓ Valid (s ∈ L, |s| ≥ {currentP})
+                  </span>
+                ) : (
+                  <span className="chip chip-danger" id="pumping-string-status-badge">
+                    ✕ Incorrect ({initialStringValidity.errorTitle || 'Invalid'})
+                  </span>
+                )}
+                <div className="segmented" role="group" aria-label="Pumping length">
+                  <span className="segmented-label">p</span>
+                  {[2, 3, 4].map(pVal => (
+                    <button
+                      key={pVal}
+                      className={`segmented-btn p-btn ${currentP === pVal ? 'active' : ''}`}
+                      onClick={() => handleSetP(pVal)}
+                    >
+                      {pVal}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div className="input-row">
-              <div className="input-with-prefix">
+              <div className={`input-with-prefix ${!initialStringValidity.isValid ? 'input-error' : ''}`}>
                 <span className="input-prefix">s =</span>
                 <input
                   type="text"
@@ -275,23 +330,51 @@ export default function PumpingSimulator({
                   placeholder="e.g. 000111222"
                   value={customStringInput}
                   onChange={(e) => setCustomStringInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomString()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleApplyCustomString();
+                    }
+                  }}
                   spellCheck="false"
+                  aria-invalid={!initialStringValidity.isValid}
                 />
               </div>
               <button
                 id="btn-apply-custom-pumping-str"
                 className="btn btn-primary"
                 onClick={handleApplyCustomString}
+                disabled={!initialStringValidity.isValid}
+                title={!initialStringValidity.isValid ? `Cannot apply: ${initialStringValidity.errorTitle}` : 'Apply string to Pumping Lemma'}
               >
                 Apply
+              </button>
+              <button
+                id="btn-reset-default-pumping-str"
+                className="btn btn-secondary"
+                onClick={handleResetDefaultString}
+                title={`Reset to default valid string (${currentPreset.generateString(currentP)})`}
+              >
+                Default
               </button>
             </div>
 
             {initialStringValidity && (
               <div className={`pumping-string-validity-banner ${initialStringValidity.isValid ? 'valid' : 'invalid'}`}>
                 <span className="validity-icon">{initialStringValidity.isValid ? '✓' : '✕'}</span>
-                <span className="validity-text">{initialStringValidity.message}</span>
+                <div className="validity-content">
+                  <div className="validity-heading">
+                    {initialStringValidity.isValid
+                      ? 'Valid Starting String (s ∈ L, |s| ≥ p)'
+                      : `Incorrect String — ${initialStringValidity.errorTitle}:`}
+                  </div>
+                  <div className="validity-message">{initialStringValidity.message}</div>
+                  {!initialStringValidity.isValid && (
+                    <div className="validity-warning-note">
+                      ⚠️ <b>Cannot apply:</b> The CFL Pumping Lemma proof requires choosing a starting string that <i>strictly belongs to the language</i> (s ∈ L) with length |s| ≥ p. This invalid string cannot be partitioned or pumped. Fix the string or click <b>Default</b>.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
