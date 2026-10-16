@@ -163,21 +163,20 @@ export class PDAEngine {
       }
     }
 
-    // If no accepting path found, return the deepest path followed by a rejection node
+    // If no accepting path found, take the deepest reachable path and mark the halt configuration as rejected
     const failPath = [...bestFailurePath];
     const lastNode = failPath[failPath.length - 1];
-    failPath.push({
-      state: lastNode.state,
-      stack: [...lastNode.stack],
-      inputIndex: lastNode.inputIndex,
-      parent: lastNode,
-      transition: null,
-      step: lastNode.step + 1,
-      isRejected: true,
-      note: lastNode.inputIndex < inputString.length 
-        ? `No transition on '${inputString[lastNode.inputIndex]}' with stack top '${lastNode.stack[0] || 'empty'}' (Halted & Rejected)`
-        : `Input consumed but state '${lastNode.state}' is not an accepting state (Rejected)`
-    });
+    const haltReason = lastNode.inputIndex < inputString.length 
+      ? `No transition on '${inputString[lastNode.inputIndex]}' with stack top '${lastNode.stack[0] || 'empty'}' (Halted & Rejected)`
+      : `Input consumed but state '${lastNode.state}' is not an accepting state (Rejected)`;
+
+    lastNode.isRejected = true;
+    lastNode.haltReason = haltReason;
+    if (lastNode.step > 0) {
+      lastNode.note = `${lastNode.note} → ${haltReason}`;
+    } else {
+      lastNode.note = haltReason;
+    }
 
     return failPath;
   }

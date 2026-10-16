@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { PDA_PRESETS, refreshPDAPresets } from '../pda/pda-presets.js';
 import { PDAEngine } from '../pda/pda-engine.js';
 import { PDAVisualizer } from '../pda/pda-visualizer.js';
@@ -11,6 +11,7 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(600);
   const [testCases, setTestCases] = useState(() => PDA_PRESETS[0].testCases || []);
+  const [simStatus, setSimStatus] = useState({ isRejected: false, isAccepted: false, isReady: true });
 
   // Element Refs for PDAVisualizer
   const svgRef = useRef(null);
@@ -71,22 +72,32 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
     const curIdx = engine.currentTraceIndex;
     const activeNode = trace[curIdx];
 
-    vis.renderDiagram(currentPreset, config.state, activeNode?.transition);
+    const isRejected = Boolean(activeNode?.isRejected || config.status === 'rejected');
+    const isAccepted = Boolean(config.status === 'accepted' || (curIdx === trace.length - 1 && !isRejected && engine.checkAcceptance()));
+    const isReady = curIdx === 0 && !isRejected && !isAccepted;
+
+    setSimStatus({ isRejected, isAccepted, isReady });
+
+    vis.renderDiagram(currentPreset, config.state, activeNode?.transition, isRejected, isAccepted);
     vis.renderStack(config.stack);
-    vis.renderTape(engine.originalInput, config.headIndex);
-    vis.updateCurrentID(config, engine.originalInput);
+    vis.renderTape(engine.originalInput, config.headIndex, isRejected, isAccepted);
+    vis.updateCurrentID(config, engine.originalInput, isRejected, isAccepted, activeNode?.haltReason || activeNode?.note);
     vis.renderTraceTable(trace, curIdx, (stepIdx) => {
       stopAutoPlay();
       engine.jumpToStep(stepIdx);
       syncPDAView();
     });
 
-    if (config.status === 'accepted' && curIdx === trace.length - 1 && window.confetti) {
+    if (isAccepted && curIdx === trace.length - 1 && window.confetti) {
       window.confetti({
         particleCount: 50,
         spread: 60,
         origin: { y: 0.7 }
       });
+    }
+
+    if (isRejected && curIdx === trace.length - 1) {
+      onToast(`Rejected: "${engine.originalInput || 'ε'}" does not satisfy ${currentPreset.name.split(' ')[0]}`, '✕');
     }
   };
 
@@ -182,9 +193,26 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
     if (p) onToast(`Loaded: ${p.name}`, '✓');
   };
 
+  const allowedAlphabet = currentPreset.alphabet || ['0', '1'];
+  const invalidSymbols = inputString.split('').filter(ch => ch.trim() !== '' && !allowedAlphabet.includes(ch));
+  const hasInvalidSymbols = invalidSymbols.length > 0;
+
+  const willStringReject = useMemo(() => {
+    if (hasInvalidSymbols) return true;
+    if (!engineRef.current) return false;
+    const trace = engineRef.current.computeTrace(inputString.trim());
+    const lastNode = trace[trace.length - 1];
+    return Boolean(lastNode && lastNode.isRejected);
+  }, [inputString, currentPreset, hasInvalidSymbols]);
+
   const handleTraceInput = () => {
     stopAutoPlay();
     const val = inputString.trim();
+    const invalid = val.split('').filter(ch => !allowedAlphabet.includes(ch));
+    if (invalid.length > 0) {
+      onToast(`Cannot take input: '${invalid[0]}' is not in alphabet Σ = {${allowedAlphabet.join(', ')}}`, '✕');
+      return;
+    }
     if (visRef.current) visRef.current.originalInput = val;
     if (engineRef.current) {
       engineRef.current.reset(val);
@@ -341,13 +369,36 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
               <Icon name="type" size={16} className="card-icon" />
               <span>Input Tape</span>
             </div>
-            <span className="chip chip-neutral" id="pda-accept-mode-tag">
-              Accepts by: <b>{acceptLabel}</b>
-            </span>
+            <div className="tape-header-chips">
+              <span className="chip chip-neutral" id="pda-accept-mode-tag">
+                Accepts by: <b>{acceptLabel}</b>
+              </span>
+              {hasInvalidSymbols ? (
+                <span className="chip chip-danger" id="pda-status-badge">
+                  ✕ Invalid Symbol (∉ Σ)
+                </span>
+              ) : simStatus.isRejected ? (
+                <span className="chip chip-danger" id="pda-status-badge">
+                  ✕ Rejected (w ∉ L)
+                </span>
+              ) : simStatus.isAccepted ? (
+                <span className="chip chip-success" id="pda-status-badge">
+                  ✓ Accepted (w ∈ L)
+                </span>
+              ) : willStringReject ? (
+                <span className="chip chip-danger" id="pda-status-badge" title="This string does not satisfy the language condition and will be rejected">
+                  ✕ Will Reject (w ∉ L)
+                </span>
+              ) : (
+                <span className="chip chip-success" id="pda-status-badge" title="This string satisfies the language condition and will be accepted">
+                  ✓ Valid String (w ∈ L)
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="input-row">
-            <div className="input-with-prefix">
+            <div className={`input-with-prefix ${hasInvalidSymbols ? 'input-error' : ''}`}>
               <span className="input-prefix">w =</span>
               <input
                 type="text"
@@ -356,11 +407,17 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                 value={inputString}
                 onChange={(e) => setInputString(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleTraceInput()}
-                placeholder="e.g. 001111"
+                placeholder={`e.g. ${currentPreset.defaultInput || '001111'}`}
                 spellCheck="false"
               />
             </div>
-            <button id="btn-trace-input" className="btn btn-primary" onClick={handleTraceInput}>
+            <button
+              id="btn-trace-input"
+              className="btn btn-primary"
+              onClick={handleTraceInput}
+              disabled={hasInvalidSymbols}
+              title={hasInvalidSymbols ? `Symbol '${invalidSymbols[0]}' is not in alphabet Σ` : 'Trace input'}
+            >
               <Icon name="play" size={14} /> Trace
             </button>
             <button
@@ -376,10 +433,20 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
               className="btn btn-secondary"
               title="Save this string as a test case"
               onClick={handleAddTestCase}
+              disabled={hasInvalidSymbols}
             >
               <Icon name="plus" size={14} /> Save as test
             </button>
           </div>
+
+          {hasInvalidSymbols && (
+            <div className="input-alphabet-error">
+              <Icon name="alertCircle" size={14} />
+              <span>
+                Symbol <b>'{invalidSymbols[0]}'</b> is not in alphabet Σ = &#123;{allowedAlphabet.join(', ')}&#125;. Input cannot be taken.
+              </span>
+            </div>
+          )}
 
           <div className="tape-strip" id="tape-cells-container" ref={tapeCellsRef} />
         </div>

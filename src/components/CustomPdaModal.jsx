@@ -169,11 +169,15 @@ export default function CustomPdaModal({
       };
     });
 
+    const derivedAlphabet = Array.from(new Set(transitions.map(t => t.input).filter(i => i && i !== 'ε')));
+    const customAlphabet = derivedAlphabet.length > 0 ? derivedAlphabet : ['0', '1'];
+
     const customPDA = {
       id: `custom_pda_${Date.now()}`,
       name: name.trim() || 'Custom PDA',
       description: `User-defined custom PDA question for ${name}`,
       defaultInput: defaultInput.trim() || '001111',
+      alphabet: customAlphabet,
       startState: startState.trim() || 'q0',
       startStack: 'Z0',
       acceptStates: accStates,

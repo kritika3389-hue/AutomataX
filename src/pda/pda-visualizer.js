@@ -10,7 +10,7 @@ export class PDAVisualizer {
     this.currentIdEl = containerElements.currentIdText;
   }
 
-  renderDiagram(pda, currentStateId, activeTransition = null) {
+  renderDiagram(pda, currentStateId, activeTransition = null, isRejected = false, isAccepted = false) {
     if (!this.svg) return;
     if (!pda || !pda.states || !pda.transitions) return;
 
@@ -44,6 +44,12 @@ export class PDAVisualizer {
         </marker>
         <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
           <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#4f46e5" flood-opacity="0.25" />
+        </filter>
+        <filter id="glow-danger" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#e11d48" flood-opacity="0.35" />
+        </filter>
+        <filter id="glow-success" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#059669" flood-opacity="0.35" />
         </filter>
         <filter id="node-shadow" x="-30%" y="-30%" width="160%" height="160%">
           <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#0f172a" flood-opacity="0.08" />
@@ -148,6 +154,8 @@ export class PDAVisualizer {
       const isCurrent = state.id === currentStateId;
       const isAccept = state.isAccept;
       const isStart = state.isStart;
+      const isRejectedCurrent = isCurrent && isRejected;
+      const isAcceptedCurrent = isCurrent && isAccepted;
 
       const circleRadius = 30;
 
@@ -161,13 +169,37 @@ export class PDAVisualizer {
         `;
       }
 
+      let strokeColor = isCurrent ? '#4f46e5' : (isAccept ? '#059669' : '#94a3b8');
+      let fillColor = isCurrent ? '#eef2ff' : '#ffffff';
+      let strokeWidth = isCurrent ? '2.5' : '1.8';
+      let textColor = isCurrent ? '#4338ca' : '#0f172a';
+      let filterUrl = isCurrent ? 'url(#glow)' : 'url(#node-shadow)';
+
+      if (isRejectedCurrent) {
+        strokeColor = '#e11d48';
+        fillColor = '#fff1f2';
+        textColor = '#be123c';
+        strokeWidth = '2.8';
+        filterUrl = 'url(#glow-danger)';
+      } else if (isAcceptedCurrent) {
+        strokeColor = '#059669';
+        fillColor = '#ecfdf5';
+        textColor = '#065f46';
+        strokeWidth = '2.8';
+        filterUrl = 'url(#glow-success)';
+      }
+
       svgContent += `
-        <g class="state-node ${isCurrent ? 'current-state' : ''}" data-state-id="${state.id}" transform="translate(${state.x}, ${state.y})">
-          ${isCurrent ? `<circle r="${circleRadius + 8}" fill="none" stroke="#6366f1" stroke-width="2" opacity="0.35" class="pulse-ring" />` : ''}
-          <circle r="${circleRadius}" fill="${isCurrent ? '#eef2ff' : '#ffffff'}" stroke="${isCurrent ? '#4f46e5' : (isAccept ? '#059669' : '#94a3b8')}" stroke-width="${isCurrent ? '2.5' : '1.8'}" filter="${isCurrent ? 'url(#glow)' : 'url(#node-shadow)'}" />
-          ${isAccept ? `<circle r="${circleRadius - 5}" fill="none" stroke="${isCurrent ? '#4f46e5' : '#059669'}" stroke-width="1.5" />` : ''}
-          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono', monospace" font-size="15" font-weight="700" fill="${isCurrent ? '#4338ca' : '#0f172a'}">${state.label || state.id}</text>
-          <text y="${circleRadius + 18}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#64748b">${state.desc || ''}</text>
+        <g class="state-node ${isCurrent ? 'current-state' : ''} ${isRejectedCurrent ? 'rejected-state' : ''} ${isAcceptedCurrent ? 'accepted-state' : ''}" data-state-id="${state.id}" transform="translate(${state.x}, ${state.y})">
+          ${isRejectedCurrent 
+            ? `<circle r="${circleRadius + 8}" fill="none" stroke="#e11d48" stroke-width="2" opacity="0.45" class="pulse-ring pulse-rejected" />` 
+            : (isAcceptedCurrent 
+              ? `<circle r="${circleRadius + 8}" fill="none" stroke="#059669" stroke-width="2" opacity="0.45" class="pulse-ring pulse-accepted" />` 
+              : (isCurrent ? `<circle r="${circleRadius + 8}" fill="none" stroke="#6366f1" stroke-width="2" opacity="0.35" class="pulse-ring" />` : ''))}
+          <circle r="${circleRadius}" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}" filter="${filterUrl}" />
+          ${isAccept ? `<circle r="${circleRadius - 5}" fill="none" stroke="${strokeColor}" stroke-width="1.5" />` : ''}
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono', monospace" font-size="15" font-weight="700" fill="${textColor}">${state.label || state.id}</text>
+          <text y="${circleRadius + 18}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="${isRejectedCurrent ? '#e11d48' : '#64748b'}">${isRejectedCurrent ? 'Halted / Rejected' : (state.desc || '')}</text>
         </g>
       `;
     });
@@ -217,7 +249,7 @@ export class PDAVisualizer {
     this.stackContainer.innerHTML = html;
   }
 
-  renderTape(inputString, headIndex) {
+  renderTape(inputString, headIndex, isRejected = false, isAccepted = false) {
     if (!this.tapeContainer) return;
 
     let html = '';
@@ -225,8 +257,9 @@ export class PDAVisualizer {
 
     // If input is empty string
     if (chars.length === 0) {
+      const statusClass = isRejected ? 'rejected-cell' : (isAccepted ? 'accepted-cell' : '');
       html += `
-        <div class="tape-cell head-cell active-cell">
+        <div class="tape-cell head-cell active-cell ${statusClass}">
           <div class="head-pointer">▼</div>
           <span class="char-text">ε</span>
           <span class="tape-index">0</span>
@@ -236,9 +269,16 @@ export class PDAVisualizer {
       chars.forEach((char, idx) => {
         const isCurrent = idx === headIndex;
         const isConsumed = idx < headIndex;
+        let cellClass = '';
+        if (isCurrent) {
+          const statusClass = isRejected ? 'rejected-cell' : (isAccepted ? 'accepted-cell' : '');
+          cellClass = `head-cell active-cell ${statusClass}`;
+        } else if (isConsumed) {
+          cellClass = 'consumed-cell';
+        }
 
         html += `
-          <div class="tape-cell ${isCurrent ? 'head-cell active-cell' : ''} ${isConsumed ? 'consumed-cell' : ''}" data-idx="${idx}">
+          <div class="tape-cell ${cellClass}" data-idx="${idx}">
             ${isCurrent ? '<div class="head-pointer">▼</div>' : ''}
             <span class="char-text">${char}</span>
             <span class="tape-index">${idx}</span>
@@ -246,10 +286,15 @@ export class PDAVisualizer {
         `;
       });
 
-      // Show end-of-string marker $
+      // Show end-of-string marker ⊔
       const isPastEnd = headIndex >= chars.length;
+      let endCellClass = 'end-marker';
+      if (isPastEnd) {
+        const statusClass = isRejected ? 'rejected-cell' : (isAccepted ? 'accepted-cell' : '');
+        endCellClass += ` head-cell active-cell ${statusClass}`;
+      }
       html += `
-        <div class="tape-cell end-marker ${isPastEnd ? 'head-cell active-cell' : ''}">
+        <div class="tape-cell ${endCellClass}">
           ${isPastEnd ? '<div class="head-pointer">▼</div>' : ''}
           <span class="char-text">⊔</span>
           <span class="tape-index">end</span>
@@ -337,10 +382,41 @@ export class PDAVisualizer {
     }
   }
 
-  updateCurrentID(config, originalInput) {
+  updateCurrentID(config, originalInput, isRejected = false, isAccepted = false, failureNote = '') {
     if (!this.currentIdEl) return;
     const remaining = originalInput.slice(config.headIndex) || 'ε';
     const stackStr = config.stack.length > 0 ? config.stack.join('') : 'ε';
-    this.currentIdEl.textContent = `( ${config.state},  "${remaining}",  [ ${stackStr} ] )`;
+    const baseFormula = `( ${config.state},  "${remaining}",  [ ${stackStr} ] )`;
+
+    const boxEl = this.currentIdEl.closest('.current-id-box');
+    if (boxEl) {
+      boxEl.classList.remove('box-rejected', 'box-accepted');
+      if (isRejected) {
+        boxEl.classList.add('box-rejected');
+      } else if (isAccepted) {
+        boxEl.classList.add('box-accepted');
+      }
+    }
+
+    if (isRejected) {
+      this.currentIdEl.innerHTML = `
+        <div class="id-main-formula id-text-rejected">${baseFormula}</div>
+        <div class="id-status-pill pill-rejected">
+          <span class="status-icon">✕</span> Rejected — String does not satisfy language
+        </div>
+        ${failureNote ? `<div class="id-fail-note">${failureNote}</div>` : ''}
+      `;
+    } else if (isAccepted) {
+      this.currentIdEl.innerHTML = `
+        <div class="id-main-formula id-text-accepted">${baseFormula}</div>
+        <div class="id-status-pill pill-accepted">
+          <span class="status-icon">✓</span> Accepted — String satisfies language (w ∈ L)
+        </div>
+      `;
+    } else {
+      this.currentIdEl.innerHTML = `
+        <div class="id-main-formula">${baseFormula}</div>
+      `;
+    }
   }
 }
