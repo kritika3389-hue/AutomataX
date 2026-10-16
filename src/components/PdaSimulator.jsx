@@ -11,8 +11,6 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(600);
   const [testCases, setTestCases] = useState(() => PDA_PRESETS[0].testCases || []);
-  const [graphViewMode, setGraphViewMode] = useState('graph');
-  const [activeTransition, setActiveTransition] = useState(null);
 
   // Element Refs for PDAVisualizer
   const svgRef = useRef(null);
@@ -38,17 +36,40 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
     setIsPlaying(false);
   };
 
+  // Sync DOM element references with visualizer
+  const syncVisualizerRefs = () => {
+    if (!visRef.current) {
+      visRef.current = new PDAVisualizer({
+        diagramSvg: svgRef.current,
+        stackTube: stackTubeRef.current,
+        stackCount: stackCountRef.current,
+        tapeCells: tapeCellsRef.current,
+        traceTbody: traceTbodyRef.current,
+        currentIdText: currentIdRef.current
+      });
+    } else {
+      visRef.current.svg = svgRef.current;
+      visRef.current.stackContainer = stackTubeRef.current;
+      visRef.current.stackCountEl = stackCountRef.current;
+      visRef.current.tapeContainer = tapeCellsRef.current;
+      visRef.current.traceTableBody = traceTbodyRef.current;
+      visRef.current.currentIdEl = currentIdRef.current;
+    }
+  };
+
   // Sync visualizer with engine
   const syncPDAView = () => {
     const engine = engineRef.current;
+    if (!engine) return;
+
+    syncVisualizerRefs();
     const vis = visRef.current;
-    if (!engine || !vis) return;
+    if (!vis) return;
 
     const config = engine.getCurrentConfig();
     const trace = engine.precomputedTrace;
     const curIdx = engine.currentTraceIndex;
     const activeNode = trace[curIdx];
-    setActiveTransition(activeNode?.transition || null);
 
     vis.renderDiagram(currentPreset, config.state, activeNode?.transition);
     vis.renderStack(config.stack);
@@ -75,36 +96,17 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
     setIsPlaying(true);
 
     playTimerRef.current = setInterval(() => {
-      const advanced = engineRef.current.stepForward();
-      syncPDAView();
-      if (!advanced) {
-        stopAutoPlay();
+      if (engineRef.current) {
+        const advanced = engineRef.current.stepForward();
+        syncPDAView();
+        if (!advanced) {
+          stopAutoPlay();
+        }
       }
     }, playSpeed);
   };
 
-  // Initialize visualizer and engine on mount and preset changes
-  useEffect(() => {
-    visRef.current = new PDAVisualizer({
-      diagramSvg: svgRef.current,
-      stackTube: stackTubeRef.current,
-      stackCount: stackCountRef.current,
-      tapeCells: tapeCellsRef.current,
-      traceTbody: traceTbodyRef.current,
-      currentIdText: currentIdRef.current
-    });
-
-    engineRef.current = new PDAEngine(currentPreset);
-    visRef.current.originalInput = inputString;
-    engineRef.current.reset(inputString);
-    syncPDAView();
-
-    return () => {
-      if (playTimerRef.current) clearInterval(playTimerRef.current);
-    };
-  }, []);
-
-  // When selectedPresetId changes
+  // Preset or initial mount setup
   useEffect(() => {
     stopAutoPlay();
     const preset = presets.find(p => p.id === selectedPresetId) || presets[0];
@@ -112,13 +114,28 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
     setInputString(initialInput);
     setTestCases(preset.testCases || []);
 
-    if (visRef.current) visRef.current.originalInput = initialInput;
-    if (engineRef.current) {
+    if (!engineRef.current) {
+      engineRef.current = new PDAEngine(preset);
+    } else {
       engineRef.current.setPDA(preset);
-      engineRef.current.reset(initialInput);
-      syncPDAView();
     }
+    engineRef.current.reset(initialInput);
+
+    syncVisualizerRefs();
+    if (visRef.current) {
+      visRef.current.originalInput = initialInput;
+    }
+    syncPDAView();
+
+    return () => {
+      if (playTimerRef.current) clearInterval(playTimerRef.current);
+    };
   }, [selectedPresetId]);
+
+  // Always keep DOM views populated and in sync after any component re-render
+  useEffect(() => {
+    syncPDAView();
+  });
 
   // Keyboard navigation
   useEffect(() => {
@@ -380,9 +397,7 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
           <div className="id-card-body">
             <div className="id-label">Instantaneous Description</div>
             <div className="current-id-box">
-              <div id="pda-current-id-text" className="current-id-text" ref={currentIdRef}>
-                ( q₀,  "{inputString}",  [ Z₀ ] )
-              </div>
+              <div id="pda-current-id-text" className="current-id-text" ref={currentIdRef} />
             </div>
             <p className="id-guide-hint">
               Current state <b>q</b>, unread tape <b>w</b>, and stack <b>γ</b> (top-to-bottom).
@@ -416,8 +431,10 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                 title="Reset (R)"
                 onClick={() => {
                   stopAutoPlay();
-                  engineRef.current.reset(inputString.trim());
-                  syncPDAView();
+                  if (engineRef.current) {
+                    engineRef.current.reset(inputString.trim());
+                    syncPDAView();
+                  }
                 }}
               >
                 <Icon name="reset" size={15} />
@@ -428,8 +445,10 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                 title="Step back (←)"
                 onClick={() => {
                   stopAutoPlay();
-                  engineRef.current.stepBackward();
-                  syncPDAView();
+                  if (engineRef.current) {
+                    engineRef.current.stepBackward();
+                    syncPDAView();
+                  }
                 }}
               >
                 <Icon name="chevronLeft" size={17} />
@@ -451,8 +470,10 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                 title="Step forward (→)"
                 onClick={() => {
                   stopAutoPlay();
-                  engineRef.current.stepForward();
-                  syncPDAView();
+                  if (engineRef.current) {
+                    engineRef.current.stepForward();
+                    syncPDAView();
+                  }
                 }}
               >
                 <Icon name="chevronRight" size={17} />
@@ -463,8 +484,10 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                 title="Run to end"
                 onClick={() => {
                   stopAutoPlay();
-                  engineRef.current.runToEnd();
-                  syncPDAView();
+                  if (engineRef.current) {
+                    engineRef.current.runToEnd();
+                    syncPDAView();
+                  }
                 }}
               >
                 <Icon name="fastForward" size={15} />
@@ -505,9 +528,7 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
               <Icon name="layers" size={16} className="card-icon" />
               <span>Stack</span>
             </div>
-            <span id="stack-count-badge" className="chip chip-primary" ref={stackCountRef}>
-              Size: 1
-            </span>
+            <span id="stack-count-badge" className="chip chip-primary" ref={stackCountRef} />
           </div>
 
           <div className="stack-tube-outer">

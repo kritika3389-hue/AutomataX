@@ -12,6 +12,7 @@ export class PDAVisualizer {
 
   renderDiagram(pda, currentStateId, activeTransition = null) {
     if (!this.svg) return;
+    if (!pda || !pda.states || !pda.transitions) return;
 
     // Auto-calculate coordinates for custom states if missing
     const numStates = pda.states.length;
@@ -176,10 +177,13 @@ export class PDAVisualizer {
 
   renderStack(stack) {
     if (!this.stackContainer) return;
+    const stackItems = Array.isArray(stack) ? stack : [];
 
-    this.stackCountEl.textContent = `Size: ${stack.length}`;
+    if (this.stackCountEl) {
+      this.stackCountEl.textContent = `Size: ${stackItems.length}`;
+    }
 
-    if (stack.length === 0) {
+    if (stackItems.length === 0) {
       this.stackContainer.innerHTML = `
         <div class="empty-stack-msg">Stack is empty (ε)</div>
       `;
@@ -188,9 +192,9 @@ export class PDAVisualizer {
 
     // Stack array has index 0 as top. Render from top to bottom
     let html = '';
-    stack.forEach((symbol, idx) => {
+    stackItems.forEach((symbol, idx) => {
       const isTop = idx === 0;
-      const isBottom = idx === stack.length - 1;
+      const isBottom = idx === stackItems.length - 1;
       const isBaseSymbol = symbol === 'Z0' || symbol === 'Z₀';
 
       const symbolColorClass = isBaseSymbol ? 'symbol-z0' : (symbol === 'X' ? 'symbol-x' : 'symbol-custom');
