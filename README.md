@@ -183,12 +183,8 @@ Contributions are welcome! If you'd like to add new PDA problems, improve visual
 
 ---
 
-## 📄 License
 
-Distributed under the **MIT License**. See `LICENSE` for more information.
-
----
 
 <div align="center">
-  <sub>Developed with ❤️ for Formal Languages & Automata Theory students and researchers.</sub>
+  <sub>Developed with ❤️ for Formal Languages & Automata Theory students.</sub>
 </div>
