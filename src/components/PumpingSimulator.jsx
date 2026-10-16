@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PUMPING_PRESETS, refreshPumpingPresets } from '../pumping/pumping-presets.js';
 import { PumpingEngine } from '../pumping/pumping-engine.js';
 import { PumpingVisualizer } from '../pumping/pumping-visualizer.js';
+import Icon from './Icon.jsx';
 
 export default function PumpingSimulator({
   onToast,
@@ -68,8 +69,8 @@ export default function PumpingSimulator({
       balanceBars: balanceBarsRef.current,
       resultBanner: resultBannerRef.current,
       caseAnalysisText: caseAnalysisRef.current,
-      pumpISlider: sliderIRef.current,
-      pumpIValue: valIRef.current
+      pumpISlider: null,
+      pumpIValue: null
     });
 
     engineRef.current = new PumpingEngine(currentPreset);
@@ -167,16 +168,27 @@ export default function PumpingSimulator({
     };
   }, []);
 
+  const iOptions = [
+    { i: 0, label: 'i = 0', hint: 'pump down' },
+    { i: 1, label: 'i = 1', hint: 'original' },
+    { i: 2, label: 'i = 2', hint: 'pump up' },
+    { i: 3, label: 'i = 3', hint: 'pump up' }
+  ];
+
   return (
     <section id="tab-pumping" className="tab-content active" role="tabpanel">
-      {/* Problem Card */}
-      <div className="problem-card compact-problem-bar">
-        <div className="problem-info">
-          <span className="tag-badge">CFL Pumping Lemma</span>
-          <h2 className="problem-title">{currentPreset.name}</h2>
+      {/* Page Heading */}
+      <div className="page-head">
+        <div className="page-head-info">
+          <span className="eyebrow eyebrow-violet">
+            <Icon name="scissors" size={13} /> CFL Pumping Lemma
+          </span>
+          <h2 className="page-title">Prove {currentPreset.name} is not context-free</h2>
+          {currentPreset.description && <p className="page-desc">{currentPreset.description}</p>}
         </div>
 
-        <div className="problem-controls">
+        <div className="page-head-controls">
+          <label className="select-label" htmlFor="pumping-preset-select">Language</label>
           <select
             id="pumping-preset-select"
             className="styled-select"
@@ -186,74 +198,75 @@ export default function PumpingSimulator({
           >
             {presets.map(p => (
               <option key={p.id} value={p.id}>
-                {p.isCustom ? '⭐ [Custom] ' : ''}{p.name}
+                {p.isCustom ? '★ ' : ''}{p.name}
               </option>
             ))}
           </select>
           <button
             id="btn-open-custom-pumping-modal"
-            className="btn-primary"
+            className="btn btn-primary"
             onClick={onOpenCustomModal}
           >
-            ➕ Custom CFL Question
+            <Icon name="plus" size={15} /> Custom Language
           </button>
         </div>
       </div>
 
       <div className="pumping-grid">
-        {/* Left Column: Ribbon, Sliders, Pumping, Result */}
+        {/* Left Column */}
         <div className="pumping-main-column">
-          <div className="glass-panel">
-            {/* Quick Custom String Bar */}
-            <div className="quick-string-bar">
-              <label htmlFor="pumping-custom-string-input">Input Your Own String (s):</label>
-              <input
-                type="text"
-                id="pumping-custom-string-input"
-                className="mono-input"
-                style={{ flex: 1 }}
-                placeholder="Enter custom string e.g. 000011112222 or aaabbbccc"
-                value={customStringInput}
-                onChange={(e) => setCustomStringInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomString()}
-              />
-              <button
-                id="btn-apply-custom-pumping-str"
-                className="btn-primary"
-                onClick={handleApplyCustomString}
-              >
-                Apply String
-              </button>
-            </div>
-
-            <div className="panel-header">
-              <div className="panel-title">
-                <span className="icon">✂</span>
-                <span>Step 1: Choose Pumping Length p & Partition s = uvwxy</span>
+          {/* Step 1 */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">
+                <span className="step-badge">1</span>
+                <span>Choose string &amp; partition s = uvwxy</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Pumping Length <b>p</b>:</span>
+              <div className="segmented" role="group" aria-label="Pumping length">
+                <span className="segmented-label">p</span>
                 {[2, 3, 4].map(pVal => (
                   <button
                     key={pVal}
-                    className={`btn-i-chip p-btn ${currentP === pVal ? 'active' : ''}`}
+                    className={`segmented-btn p-btn ${currentP === pVal ? 'active' : ''}`}
                     onClick={() => handleSetP(pVal)}
                   >
-                    p = {pVal}
+                    {pVal}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Interactive String Partition Ribbon */}
+            <div className="input-row">
+              <div className="input-with-prefix">
+                <span className="input-prefix">s =</span>
+                <input
+                  type="text"
+                  id="pumping-custom-string-input"
+                  className="mono-input"
+                  placeholder="e.g. 000111222"
+                  value={customStringInput}
+                  onChange={(e) => setCustomStringInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleApplyCustomString()}
+                  spellCheck="false"
+                />
+              </div>
+              <button
+                id="btn-apply-custom-pumping-str"
+                className="btn btn-primary"
+                onClick={handleApplyCustomString}
+              >
+                Apply
+              </button>
+            </div>
+
+            {/* Partition Ribbon + Sliders */}
             <div className="ribbon-wrapper">
               <div id="pumping-ribbon-container" ref={ribbonRef} />
             </div>
 
-            {/* Length Indicators and Conditions */}
+            {/* Lengths & Conditions */}
             <div className="pumping-meta-row">
               <div className="lengths-display" id="pumping-lengths-display" ref={lengthsRef} />
-
               <div className="conditions-box">
                 <div id="cond-1-badge" className="cond-badge cond-pass" ref={cond1Ref}>
                   ✓ |vwx| ≤ p
@@ -265,151 +278,149 @@ export default function PumpingSimulator({
             </div>
           </div>
 
-          {/* Pumping Action Box */}
-          <div className="glass-panel" style={{ marginTop: '1.5rem' }}>
-            <div className="panel-header">
-              <div className="panel-title">
-                <span className="icon">⚡</span>
-                <span>Step 2: Pump String sᵢ = uvⁱwxⁱy</span>
+          {/* Step 2 */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">
+                <span className="step-badge">2</span>
+                <span>Pump the string sᵢ = uvⁱwxⁱy</span>
               </div>
-              <div className="i-quick-buttons">
-                {[
-                  { i: 0, label: 'i = 0 (Pump Down)' },
-                  { i: 1, label: 'i = 1 (Original s)' },
-                  { i: 2, label: 'i = 2 (Pump Up 2x)' },
-                  { i: 3, label: 'i = 3 (Pump Up 3x)' }
-                ].map(item => (
+            </div>
+
+            <div className="pump-controls">
+              <div className="segmented segmented-wide" role="group" aria-label="Pumping multiplier">
+                {iOptions.map(item => (
                   <button
                     key={item.i}
-                    className={`btn-i-chip i-btn ${currentI === item.i ? 'active' : ''}`}
+                    className={`segmented-btn i-btn ${currentI === item.i ? 'active' : ''}`}
                     onClick={() => handleSetI(item.i)}
                   >
-                    {item.label}
+                    <span className="seg-main">{item.label}</span>
+                    <span className="seg-sub">{item.hint}</span>
                   </button>
                 ))}
               </div>
+
+              <div className="slider-group-i">
+                <label htmlFor="pump-i-slider">Multiplier</label>
+                <input
+                  type="range"
+                  id="pump-i-slider"
+                  ref={sliderIRef}
+                  min="0"
+                  max="5"
+                  value={currentI}
+                  onChange={handleSliderIChange}
+                />
+                <span className="slider-i-val" id="pump-i-value" ref={valIRef}>
+                  i = {currentI}
+                </span>
+              </div>
             </div>
 
-            <div className="slider-group-i">
-              <label htmlFor="pump-i-slider" style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                Pumping Multiplier (i):
-              </label>
-              <input
-                type="range"
-                id="pump-i-slider"
-                ref={sliderIRef}
-                min="0"
-                max="5"
-                value={currentI}
-                onChange={handleSliderIChange}
-                style={{ flex: 1, accentColor: 'var(--accent-cyan)', cursor: 'pointer' }}
-              />
-              <span className="slider-i-val" id="pump-i-value" ref={valIRef}>
-                {currentI}
-              </span>
-            </div>
-
-            {/* Pumped String Viewer */}
             <div className="pumped-string-viewer">
-              <div className="pumped-string-title">Resulting Pumped String sᵢ:</div>
+              <div className="pumped-string-title">Resulting string sᵢ</div>
               <div className="pumped-string-tokens" id="pumped-string-tokens" ref={pumpedStringRef} />
             </div>
 
-            {/* Contradiction / Result Banner */}
             <div id="pumping-result-banner" className="result-banner result-contradiction" ref={resultBannerRef} />
 
-            {/* Case Analysis Box */}
-            <div id="pumping-case-analysis" style={{ marginTop: '1rem' }} ref={caseAnalysisRef} />
+            <div id="pumping-case-analysis" ref={caseAnalysisRef} />
           </div>
         </div>
 
-        {/* Right Column: Symbol Frequency Balancer & Adversary Mode */}
+        {/* Right Column */}
         <div className="pumping-side-column">
-          {/* Balance Meters Card */}
-          <div className="balance-meters-card">
-            <div className="panel-header" style={{ marginBottom: '0.5rem' }}>
-              <div className="panel-title">
-                <span className="icon">📊</span>
-                <span>Symbol Count Balance</span>
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">
+                <Icon name="barChart" size={16} className="card-icon" />
+                <span>Symbol Balance</span>
               </div>
             </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Language requires <b>N₀ = N₁ = N₂</b>. Notice how pumping causes an unavoidable imbalance!
+            <p className="card-hint">
+              Compare symbol counts in sᵢ. Pumping breaks the balance the language requires.
             </p>
-
             <div className="balance-bars-track" id="pumping-balance-bars" ref={balanceBarsRef} />
           </div>
 
-          {/* Adversary Game Mode Card */}
-          <div className="adversary-game-card">
-            <div className="panel-title" style={{ color: '#d8b4fe' }}>
-              <span className="icon">⚔</span>
-              <span>The Adversary Game</span>
+          <div className="card adversary-game-card">
+            <div className="card-header">
+              <div className="card-title">
+                <Icon name="swords" size={16} className="card-icon icon-violet" />
+                <span>Adversary Game</span>
+              </div>
             </div>
 
-            <div className="adversary-steps">
-              <div className="adversary-step">
+            <ol className="adversary-steps">
+              <li className="adversary-step">
                 <span className="step-num">1</span>
-                <span>Adversary claims L is CFL and gives pumping length p = {currentP}.</span>
-              </div>
-              <div className="adversary-step">
+                <span>Adversary claims L is context-free with pumping length <b>p = {currentP}</b>.</span>
+              </li>
+              <li className="adversary-step">
                 <span className="step-num">2</span>
-                <span>You choose string s = {customStringInput || '000111222'} ∈ L with |s| ≥ {currentP}.</span>
-              </div>
-              <div className="adversary-step">
+                <span>You pick <code>s = {customStringInput || '000111222'}</code> ∈ L with |s| ≥ p.</span>
+              </li>
+              <li className="adversary-step">
                 <span className="step-num">3</span>
-                <span>Adversary picks partition s = uvwxy (|vwx| ≤ p, |vx| ≥ 1).</span>
-              </div>
-              <div className="adversary-step">
+                <span>Adversary splits s = uvwxy with |vwx| ≤ p and |vx| ≥ 1.</span>
+              </li>
+              <li className="adversary-step">
                 <span className="step-num">4</span>
-                <span>You select i (usually 2 or 0) to force sᵢ ∉ L!</span>
-              </div>
-            </div>
+                <span>You choose <b>i</b> (usually 0 or 2) so that sᵢ ∉ L.</span>
+              </li>
+            </ol>
 
             <button
               id="btn-adversary-challenge"
-              className="btn-game-challenge"
+              className="btn btn-violet btn-block"
               onClick={handleAdversaryChallenge}
             >
-              ⚔ Test All Adversary Partitions
+              <Icon name="swords" size={15} /> Test all adversary partitions
             </button>
 
             {adversaryResult && (
-              <div
-                id="adversary-summary-box"
-                style={{ marginTop: '0.85rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}
-              >
-                <div style={{ background: 'rgba(168, 85, 247, 0.15)', border: '1px solid var(--accent-purple)', padding: '0.75rem', borderRadius: '8px' }}>
-                  <h5 style={{ color: '#d8b4fe', fontSize: '0.95rem', marginBottom: '0.35rem' }}>
-                    ⚔ Adversary Refuted on All Partitions!
-                  </h5>
-                  <p style={{ marginBottom: '0.4rem' }}>
-                    Tested <strong>{adversaryResult.totalPartitions}</strong> possible valid partitions of <code>"{engineRef.current?.s}"</code>.
-                  </p>
-                  <p style={{ color: '#34d399', fontWeight: 700 }}>
-                    Contradictions Found: {adversaryResult.contradictedCount} / {adversaryResult.totalPartitions} ({adversaryResult.successRate.toFixed(1)}%)
-                  </p>
-                  <p style={{ fontSize: '0.75rem', marginTop: '0.4rem', color: 'var(--text-muted)' }}>
-                    No matter which partition the Adversary picks, pumping either i=2 or i=0 produces a string with unequal counts, escaping the language!
-                  </p>
+              <div id="adversary-summary-box" className="adversary-summary">
+                <div className="adversary-summary-head">
+                  <Icon name="check" size={16} />
+                  <span>All partitions refuted</span>
                 </div>
+                <div className="adversary-stats">
+                  <div>
+                    <span className="stat-value">{adversaryResult.totalPartitions}</span>
+                    <span className="stat-label">partitions tested</span>
+                  </div>
+                  <div>
+                    <span className="stat-value stat-success">
+                      {adversaryResult.successRate.toFixed(0)}%
+                    </span>
+                    <span className="stat-label">
+                      {adversaryResult.contradictedCount} contradictions
+                    </span>
+                  </div>
+                </div>
+                <p className="adversary-note">
+                  Whatever split the adversary picks for <code>{engineRef.current?.s}</code>, some i
+                  pumps the string out of L.
+                </p>
               </div>
             )}
           </div>
 
-          {/* Quick Formal Proof Trigger */}
-          <div className="glass-panel" style={{ textAlign: 'center' }}>
-            <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem' }}>Need to submit this proof?</h4>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
-              View and copy the rigorous 5-step formal proof in textbook format or LaTeX.
-            </p>
+          <div className="card proof-cta">
+            <div className="proof-cta-icon">
+              <Icon name="fileText" size={20} />
+            </div>
+            <div className="proof-cta-body">
+              <h4>Formal proof</h4>
+              <p>Textbook-style proof with Markdown &amp; LaTeX export.</p>
+            </div>
             <button
               id="btn-open-full-proof"
-              className="btn-primary"
-              style={{ width: '100%', justifyContent: 'center' }}
+              className="btn btn-secondary"
               onClick={onOpenProofModal}
             >
-              📄 Open Formal Mathematical Proof
+              Open
             </button>
           </div>
         </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PDA_PRESETS, refreshPDAPresets } from '../pda/pda-presets.js';
 import { PDAEngine } from '../pda/pda-engine.js';
 import { PDAVisualizer } from '../pda/pda-visualizer.js';
+import Icon from './Icon.jsx';
 
 export default function PdaSimulator({ onToast, onOpenCustomModal }) {
   const [presets, setPresets] = useState(() => refreshPDAPresets());
@@ -270,21 +271,28 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
     };
   }, []);
 
+  const acceptLabel = currentPreset.acceptMode === 'empty'
+    ? 'Empty stack'
+    : currentPreset.acceptMode === 'both'
+      ? 'Final state + empty stack'
+      : 'Final state';
+
   return (
     <section id="tab-pda" className="tab-content active" role="tabpanel">
-      {/* Problem Bar */}
-      <div className="problem-card compact-problem-bar">
-        <div className="problem-info">
-          <span className="tag-badge">PDA</span>
-          <h2 className="problem-title" id="pda-language-title">{currentPreset.name}</h2>
+      {/* Page Heading */}
+      <div className="page-head">
+        <div className="page-head-info">
+          <span className="eyebrow">
+            <Icon name="cpu" size={13} /> Pushdown Automaton
+          </span>
+          <h2 className="page-title" id="pda-language-title">{currentPreset.name}</h2>
           {currentPreset.description && (
-            <p className="problem-desc" id="pda-language-desc" style={{ display: 'none' }}>
-              {currentPreset.description}
-            </p>
+            <p className="page-desc" id="pda-language-desc">{currentPreset.description}</p>
           )}
         </div>
 
-        <div className="problem-controls">
+        <div className="page-head-controls">
+          <label className="select-label" htmlFor="pda-preset-select">Problem</label>
           <select
             id="pda-preset-select"
             className="styled-select"
@@ -294,25 +302,34 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
           >
             {presets.map(p => (
               <option key={p.id} value={p.id}>
-                {p.isCustom ? '⭐ [Custom] ' : ''}{p.name}
+                {p.isCustom ? '★ ' : ''}{p.name}
               </option>
             ))}
           </select>
-          <button id="btn-open-custom-pda-modal" className="btn-primary" onClick={onOpenCustomModal}>
-            ➕ Custom PDA
+          <button id="btn-open-custom-pda-modal" className="btn btn-primary" onClick={onOpenCustomModal}>
+            <Icon name="plus" size={15} /> Custom PDA
           </button>
         </div>
       </div>
 
-      {/* Main PDA Workspace: 3-Column Dashboard */}
-      <div className="pda-layout-grid">
-        {/* Column 1: Input Tape + Diagram + Playback */}
+      {/* Workspace: Input + Graph (left) | Stack (right) */}
+      <div className="pda-workspace">
         <div className="pda-main-column">
-          {/* Input Tape Section */}
-          <div className="tape-container">
-            <div className="tape-header-row">
-              <div className="tape-input-group">
-                <label htmlFor="pda-input-string" className="tape-label">w:</label>
+          {/* Input Tape */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">
+                <Icon name="type" size={16} className="card-icon" />
+                <span>Input Tape</span>
+              </div>
+              <span className="chip chip-neutral" id="pda-accept-mode-tag">
+                Accepts by: <b>{acceptLabel}</b>
+              </span>
+            </div>
+
+            <div className="input-row">
+              <div className="input-with-prefix">
+                <span className="input-prefix">w =</span>
                 <input
                   type="text"
                   id="pda-input-string"
@@ -321,47 +338,43 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                   onChange={(e) => setInputString(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleTraceInput()}
                   placeholder="e.g. 001111"
+                  spellCheck="false"
                 />
-                <button id="btn-trace-input" className="btn-primary" onClick={handleTraceInput}>
-                  ▶ Trace
-                </button>
-                <button
-                  id="btn-load-target-str"
-                  className="btn-secondary"
-                  title={`Load target string ${currentPreset.defaultInput || '001111'}`}
-                  onClick={handleLoadTarget}
-                >
-                  {currentPreset.defaultInput || '001111'}
-                </button>
-                <button
-                  id="btn-add-test-case"
-                  className="btn-secondary"
-                  title="Save this string as a test case"
-                  onClick={handleAddTestCase}
-                >
-                  + Test
-                </button>
               </div>
-
-              <div className="acceptance-mode-badge" id="pda-accept-mode-tag">
-                Accept: {currentPreset.acceptMode === 'empty' ? 'Empty Stack' : 'Final (F)'}
-              </div>
+              <button id="btn-trace-input" className="btn btn-primary" onClick={handleTraceInput}>
+                <Icon name="play" size={14} /> Trace
+              </button>
+              <button
+                id="btn-load-target-str"
+                className="btn btn-secondary"
+                title={`Load default string ${currentPreset.defaultInput || '001111'}`}
+                onClick={handleLoadTarget}
+              >
+                Default
+              </button>
+              <button
+                id="btn-add-test-case"
+                className="btn btn-secondary"
+                title="Save this string as a test case"
+                onClick={handleAddTestCase}
+              >
+                <Icon name="plus" size={14} /> Save as test
+              </button>
             </div>
 
-            {/* Animated Tape Strip */}
             <div className="tape-strip" id="tape-cells-container" ref={tapeCellsRef} />
           </div>
 
-          {/* SVG Transition Diagram */}
-          <div className="glass-panel">
-            <div className="panel-header">
-              <div className="panel-title">
-                <span className="icon">◎</span>
+          {/* State Transition Graph */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">
+                <Icon name="graph" size={16} className="card-icon" />
                 <span>State Transition Graph</span>
               </div>
-              <div className="state-legend" style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', gap: '0.65rem' }}>
-                <span><b style={{ color: 'var(--accent-cyan)' }}>Blue:</b> Active</span>
-                <span><b style={{ color: 'var(--accent-emerald)' }}>Double:</b> Accept</span>
+              <div className="legend">
+                <span className="legend-item"><i className="legend-dot dot-active" /> Active</span>
+                <span className="legend-item"><i className="legend-dot dot-accept" /> Accepting</span>
               </div>
             </div>
 
@@ -382,19 +395,19 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                     syncPDAView();
                   }}
                 >
-                  |◀
+                  <Icon name="reset" size={15} />
                 </button>
                 <button
                   id="ctrl-step-back"
                   className="ctrl-btn"
-                  title="Step Back (Left Arrow)"
+                  title="Step back (←)"
                   onClick={() => {
                     stopAutoPlay();
                     engineRef.current.stepBackward();
                     syncPDAView();
                   }}
                 >
-                  ◀
+                  <Icon name="chevronLeft" size={17} />
                 </button>
                 <button
                   id="ctrl-play-pause"
@@ -405,36 +418,40 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                     else startAutoPlay();
                   }}
                 >
-                  {isPlaying ? '❚❚' : '▶'}
+                  <Icon name={isPlaying ? 'pause' : 'play'} size={16} />
                 </button>
                 <button
                   id="ctrl-step-forward"
                   className="ctrl-btn"
-                  title="Step Forward (Right Arrow)"
+                  title="Step forward (→)"
                   onClick={() => {
                     stopAutoPlay();
                     engineRef.current.stepForward();
                     syncPDAView();
                   }}
                 >
-                  ▶|
+                  <Icon name="chevronRight" size={17} />
                 </button>
                 <button
                   id="ctrl-run-end"
                   className="ctrl-btn"
-                  title="Run to End"
+                  title="Run to end"
                   onClick={() => {
                     stopAutoPlay();
                     engineRef.current.runToEnd();
                     syncPDAView();
                   }}
                 >
-                  ⚡
+                  <Icon name="fastForward" size={15} />
                 </button>
               </div>
 
+              <div className="kbd-hints">
+                <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> step <kbd>R</kbd> reset
+              </div>
+
               <div className="speed-control">
-                <span>Speed:</span>
+                <label htmlFor="pda-speed-select">Speed</label>
                 <select
                   id="pda-speed-select"
                   className="speed-select"
@@ -448,117 +465,104 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
                     }
                   }}
                 >
-                  <option value={1200}>0.5x</option>
-                  <option value={600}>1.0x</option>
-                  <option value={300}>2.0x</option>
+                  <option value={1200}>0.5×</option>
+                  <option value={600}>1×</option>
+                  <option value={300}>2×</option>
                 </select>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Column 2: Stack Tube & Instantaneous Description */}
-        <div className="stack-visualizer-panel">
-          <div className="glass-panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div className="panel-header" style={{ flexShrink: 0 }}>
-              <div className="panel-title" style={{ whiteSpace: 'nowrap' }}>
-                <span className="icon">▤</span>
-                <span>Stack</span>
-              </div>
-              <span
-                id="stack-count-badge"
-                className="tag-badge"
-                ref={stackCountRef}
-                style={{ fontSize: '0.65rem', padding: '0.08rem 0.4rem', whiteSpace: 'nowrap' }}
-              >
-                Size: 1
-              </span>
+        {/* Stack + Instantaneous Description */}
+        <aside className="card stack-card">
+          <div className="card-header">
+            <div className="card-title">
+              <Icon name="layers" size={16} className="card-icon" />
+              <span>Stack</span>
             </div>
-
-            <div className="stack-tube-outer" style={{ flex: 1 }}>
-              <div className="stack-tube" id="stack-tube-elements" ref={stackTubeRef} />
-            </div>
-
-            <div className="id-status-card" style={{ flexShrink: 0 }}>
-              <div className="id-label">Current (q, w, γ):</div>
-              <div id="pda-current-id-text" className="current-id-text" ref={currentIdRef}>
-                (q₀, "{inputString}", [Z₀])
-              </div>
-            </div>
+            <span id="stack-count-badge" className="chip chip-primary" ref={stackCountRef} />
           </div>
-        </div>
 
-        {/* Column 3: Execution Trace Table */}
-        <div className="trace-visualizer-panel">
-          <div className="glass-panel trace-section" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div className="panel-header" style={{ flexShrink: 0 }}>
-              <div className="panel-title">
-                <span className="icon">📋</span>
-                <span>Execution Trace</span>
-              </div>
-              <button
-                id="btn-copy-trace"
-                className="btn-ghost"
-                title="Copy trace for assignments"
-                style={{ padding: '0.2rem 0.45rem', fontSize: '0.72rem' }}
-                onClick={handleCopyTrace}
-              >
-                📋 Copy
-              </button>
-            </div>
-
-            <div className="table-wrapper" style={{ flex: 1, overflowY: 'auto' }}>
-              <table className="trace-table" id="pda-trace-table">
-                <thead>
-                  <tr>
-                    <th className="col-step">#</th>
-                    <th className="col-state">State</th>
-                    <th className="col-input">Input</th>
-                    <th className="col-stack">Stack</th>
-                    <th className="col-action">Rule / Action</th>
-                    <th className="col-status">Status</th>
-                  </tr>
-                </thead>
-                <tbody id="pda-trace-tbody" ref={traceTbodyRef} />
-              </table>
-            </div>
+          <div className="stack-tube-outer">
+            <div className="stack-tube" id="stack-tube-elements" ref={stackTubeRef} />
           </div>
-        </div>
+
+          <div className="id-status-card">
+            <div className="id-label">Instantaneous description (q, w, γ)</div>
+            <div id="pda-current-id-text" className="current-id-text" ref={currentIdRef} />
+          </div>
+        </aside>
       </div>
 
-      {/* Test Suite / Batch Tester */}
-      <div className="glass-panel test-suite-panel">
-        <div className="panel-header">
-          <div className="panel-title">
-            <span className="icon">🧪</span>
-            <span>Test Suite & Edge Cases for {currentPreset.name}</span>
+      {/* Bottom: Trace (left) | Test Suite (right) */}
+      <div className="pda-bottom">
+        <div className="card trace-card">
+          <div className="card-header">
+            <div className="card-title">
+              <Icon name="list" size={16} className="card-icon" />
+              <span>Execution Trace</span>
+            </div>
+            <button
+              id="btn-copy-trace"
+              className="btn btn-ghost btn-sm"
+              title="Copy trace in textbook & LaTeX format"
+              onClick={handleCopyTrace}
+            >
+              <Icon name="copy" size={14} /> Copy
+            </button>
           </div>
-          <button id="btn-run-all-tests" className="btn-primary" onClick={handleRunAllTests}>
-            <span>⚡</span> Run All Test Cases
-          </button>
+
+          <div className="table-wrapper">
+            <table className="trace-table" id="pda-trace-table">
+              <thead>
+                <tr>
+                  <th className="col-step">#</th>
+                  <th className="col-state">State</th>
+                  <th className="col-input">Remaining input</th>
+                  <th className="col-stack">Stack</th>
+                  <th className="col-action">Rule applied</th>
+                  <th className="col-status">Status</th>
+                </tr>
+              </thead>
+              <tbody id="pda-trace-tbody" ref={traceTbodyRef} />
+            </table>
+          </div>
         </div>
 
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-          Click on any test case to immediately load and trace it in the simulator.
-        </p>
-
-        <div className="test-grid" id="pda-test-grid">
-          {testCases.map((tc, idx) => (
-            <div
-              key={idx}
-              className="test-card"
-              data-input={tc.input}
-              onClick={() => handleTestCardClick(tc.input)}
-            >
-              <div className="test-card-content">
-                <span className="test-input-str">"{tc.input || 'ε'}"</span>
-                <span className="test-card-desc">{tc.label}</span>
-              </div>
-              <span className={`badge ${tc.expected ? 'badge-accept' : 'badge-reject'}`}>
-                {tc.expected ? 'Valid' : 'Invalid'}
-              </span>
+        <div className="card test-suite-panel">
+          <div className="card-header">
+            <div className="card-title">
+              <Icon name="flask" size={16} className="card-icon" />
+              <span>Test Suite</span>
+              <span className="chip chip-neutral">{testCases.length}</span>
             </div>
-          ))}
+            <button id="btn-run-all-tests" className="btn btn-secondary btn-sm" onClick={handleRunAllTests}>
+              <Icon name="zap" size={14} /> Run all
+            </button>
+          </div>
+
+          <p className="card-hint">Click a test case to load it into the tracer.</p>
+
+          <div className="test-list" id="pda-test-grid">
+            {testCases.map((tc, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className="test-card"
+                data-input={tc.input}
+                onClick={() => handleTestCardClick(tc.input)}
+              >
+                <div className="test-card-content">
+                  <span className="test-input-str">{tc.input || 'ε'}</span>
+                  <span className="test-card-desc">{tc.label}</span>
+                </div>
+                <span className={`badge ${tc.expected ? 'badge-accept' : 'badge-reject'}`}>
+                  {tc.expected ? 'Accept' : 'Reject'}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </section>

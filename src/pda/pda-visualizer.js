@@ -39,11 +39,13 @@ export class PDAVisualizer {
           <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
         </marker>
         <marker id="arrowhead-active" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#38bdf8" />
+          <polygon points="0 0, 8 3, 0 6" fill="#4f46e5" />
         </marker>
-        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#4f46e5" flood-opacity="0.25" />
+        </filter>
+        <filter id="node-shadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#0f172a" flood-opacity="0.08" />
         </filter>
       </defs>
     `;
@@ -81,14 +83,14 @@ export class PDAVisualizer {
         const r = 26;
         const pathData = `M ${cx - 15} ${cy + 10} C ${cx - 35} ${cy - 45}, ${cx + 35} ${cy - 45}, ${cx + 15} ${cy + 10}`;
         const marker = isActive ? 'url(#arrowhead-active)' : 'url(#arrowhead)';
-        const strokeColor = isActive ? '#38bdf8' : '#475569';
+        const strokeColor = isActive ? '#4f46e5' : '#b4bcc8';
         const strokeWidth = isActive ? '2.5' : '1.8';
 
         svgContent += `
           <g class="transition-group ${isActive ? 'active-transition' : ''}">
             <path d="${pathData}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" ${isActive ? 'filter="url(#glow)"' : ''} />
-            <rect x="${cx - (labels.length * 4.2)}" y="${cy - 52}" width="${labels.length * 8.4 + 12}" height="20" rx="10" fill="#0f172a" stroke="${strokeColor}" stroke-width="1" opacity="0.95" />
-            <text x="${cx}" y="${cy - 38}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="11" fill="${isActive ? '#38bdf8' : '#cbd5e1'}" font-weight="600">${labels}</text>
+            <rect x="${cx - (labels.length * 4.2)}" y="${cy - 52}" width="${labels.length * 8.4 + 12}" height="20" rx="10" fill="${isActive ? '#eef2ff' : '#ffffff'}" stroke="${isActive ? '#a5b4fc' : '#e2e8f0'}" stroke-width="1" />
+            <text x="${cx}" y="${cy - 38}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="11" fill="${isActive ? '#4338ca' : '#475569'}" font-weight="600">${labels}</text>
           </g>
         `;
       } else {
@@ -127,14 +129,14 @@ export class PDAVisualizer {
         }
 
         const marker = isActive ? 'url(#arrowhead-active)' : 'url(#arrowhead)';
-        const strokeColor = isActive ? '#38bdf8' : '#475569';
+        const strokeColor = isActive ? '#4f46e5' : '#b4bcc8';
         const strokeWidth = isActive ? '2.5' : '1.8';
 
         svgContent += `
           <g class="transition-group ${isActive ? 'active-transition' : ''}">
             <path d="${pathData}" fill="none" stroke="${strokeColor}" stroke-width="${strokeWidth}" marker-end="${marker}" ${isActive ? 'filter="url(#glow)"' : ''} />
-            <rect x="${labelX - (labels.length * 4.2) - 6}" y="${labelY - 10}" width="${labels.length * 8.4 + 12}" height="20" rx="10" fill="#0f172a" stroke="${strokeColor}" stroke-width="1" opacity="0.95" />
-            <text x="${labelX}" y="${labelY + 4}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="11" fill="${isActive ? '#38bdf8' : '#cbd5e1'}" font-weight="600">${labels}</text>
+            <rect x="${labelX - (labels.length * 4.2) - 6}" y="${labelY - 10}" width="${labels.length * 8.4 + 12}" height="20" rx="10" fill="${isActive ? '#eef2ff' : '#ffffff'}" stroke="${isActive ? '#a5b4fc' : '#e2e8f0'}" stroke-width="1" />
+            <text x="${labelX}" y="${labelY + 4}" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="11" fill="${isActive ? '#4338ca' : '#475569'}" font-weight="600">${labels}</text>
           </g>
         `;
       }
@@ -152,19 +154,19 @@ export class PDAVisualizer {
       if (isStart) {
         svgContent += `
           <g class="start-arrow">
-            <line x1="${state.x - 65}" y1="${state.y}" x2="${state.x - 33}" y2="${state.y}" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowhead)" />
-            <text x="${state.x - 70}" y="${state.y + 4}" text-anchor="end" font-family="'Inter', sans-serif" font-size="11" fill="#94a3b8" font-weight="600">Start</text>
+            <line x1="${state.x - 65}" y1="${state.y}" x2="${state.x - 33}" y2="${state.y}" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#arrowhead)" />
+            <text x="${state.x - 70}" y="${state.y + 4}" text-anchor="end" font-family="'Inter', sans-serif" font-size="11" fill="#64748b" font-weight="600">start</text>
           </g>
         `;
       }
 
       svgContent += `
         <g class="state-node ${isCurrent ? 'current-state' : ''}" data-state-id="${state.id}" transform="translate(${state.x}, ${state.y})">
-          ${isCurrent ? `<circle r="${circleRadius + 8}" fill="none" stroke="#38bdf8" stroke-width="2" opacity="0.4" class="pulse-ring" />` : ''}
-          <circle r="${circleRadius}" fill="${isCurrent ? '#1e293b' : '#0f172a'}" stroke="${isCurrent ? '#38bdf8' : (isAccept ? '#10b981' : '#64748b')}" stroke-width="${isCurrent ? '3' : '2'}" ${isCurrent ? 'filter="url(#glow)"' : ''} />
-          ${isAccept ? `<circle r="${circleRadius - 6}" fill="none" stroke="${isCurrent ? '#38bdf8' : '#10b981'}" stroke-width="1.8" />` : ''}
-          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono', monospace" font-size="15" font-weight="700" fill="${isCurrent ? '#38bdf8' : '#f8fafc'}">${state.label || state.id}</text>
-          <text y="${circleRadius + 18}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#94a3b8">${state.desc || ''}</text>
+          ${isCurrent ? `<circle r="${circleRadius + 8}" fill="none" stroke="#6366f1" stroke-width="2" opacity="0.35" class="pulse-ring" />` : ''}
+          <circle r="${circleRadius}" fill="${isCurrent ? '#eef2ff' : '#ffffff'}" stroke="${isCurrent ? '#4f46e5' : (isAccept ? '#059669' : '#94a3b8')}" stroke-width="${isCurrent ? '2.5' : '1.8'}" filter="${isCurrent ? 'url(#glow)' : 'url(#node-shadow)'}" />
+          ${isAccept ? `<circle r="${circleRadius - 5}" fill="none" stroke="${isCurrent ? '#4f46e5' : '#059669'}" stroke-width="1.5" />` : ''}
+          <text text-anchor="middle" dominant-baseline="central" font-family="'JetBrains Mono', monospace" font-size="15" font-weight="700" fill="${isCurrent ? '#4338ca' : '#0f172a'}">${state.label || state.id}</text>
+          <text y="${circleRadius + 18}" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="#64748b">${state.desc || ''}</text>
         </g>
       `;
     });
