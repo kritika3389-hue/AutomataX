@@ -215,6 +215,12 @@ export class PDAVisualizer {
       this.stackCountEl.textContent = `Size: ${stackItems.length}`;
     }
 
+    const stackKey = stackItems.join('|');
+    if (this._lastRenderedStackKey === stackKey) {
+      return;
+    }
+    this._lastRenderedStackKey = stackKey;
+
     if (stackItems.length === 0) {
       this.stackContainer.innerHTML = `
         <div class="empty-stack-msg">Stack is empty (ε)</div>
@@ -382,41 +388,236 @@ export class PDAVisualizer {
     }
   }
 
-  updateCurrentID(config, originalInput, isRejected = false, isAccepted = false, failureNote = '') {
+  updateCurrentID(config, originalInput, isRejected = false, isAccepted = false, failureNote = '', preset = null, activeNode = null) {
     if (!this.currentIdEl) return;
-    const remaining = originalInput.slice(config.headIndex) || 'ε';
-    const stackStr = config.stack.length > 0 ? config.stack.join('') : 'ε';
-    const baseFormula = `( ${config.state},  "${remaining}",  [ ${stackStr} ] )`;
+    
+    const explanation = explainPdaConfig(config, originalInput, isRejected, isAccepted, failureNote, preset, activeNode);
+    const baseFormula = `( ${config.state},  "${explanation.remaining}",  [ ${explanation.stackStr} ] )`;
 
     const boxEl = this.currentIdEl.closest('.current-id-box');
     if (boxEl) {
-      boxEl.classList.remove('box-rejected', 'box-accepted');
+      boxEl.classList.remove('box-rejected', 'box-accepted', 'box-running');
       if (isRejected) {
         boxEl.classList.add('box-rejected');
       } else if (isAccepted) {
         boxEl.classList.add('box-accepted');
+      } else {
+        boxEl.classList.add('box-running');
       }
     }
 
+    let formulaClass = '';
+    let pillClass = 'pill-neutral';
+    let pillIcon = '○';
+
     if (isRejected) {
-      this.currentIdEl.innerHTML = `
-        <div class="id-main-formula id-text-rejected">${baseFormula}</div>
-        <div class="id-status-pill pill-rejected">
-          <span class="status-icon">✕</span> Rejected — String does not satisfy language
-        </div>
-        ${failureNote ? `<div class="id-fail-note">${failureNote}</div>` : ''}
-      `;
+      formulaClass = 'id-text-rejected';
+      pillClass = 'pill-rejected';
+      pillIcon = '✕';
     } else if (isAccepted) {
-      this.currentIdEl.innerHTML = `
-        <div class="id-main-formula id-text-accepted">${baseFormula}</div>
-        <div class="id-status-pill pill-accepted">
-          <span class="status-icon">✓</span> Accepted — String satisfies language (w ∈ L)
+      formulaClass = 'id-text-accepted';
+      pillClass = 'pill-accepted';
+      pillIcon = '✓';
+    }
+
+    const cleanBadgeText = (explanation.whyBadge || '').replace(/^[✕✓○ℹ]\s*/, '');
+
+    this.currentIdEl.innerHTML = `
+      <div class="id-main-formula ${formulaClass}">${baseFormula}</div>
+      <div class="id-status-pill ${pillClass}">
+        <span class="status-icon">${pillIcon}</span> ${cleanBadgeText}
+      </div>
+
+      <div class="id-criteria-checklist">
+        <div class="criteria-item ${explanation.tapeCriteria.pass ? 'pass' : 'fail'}">
+          <span class="criteria-icon">${explanation.tapeCriteria.pass ? '✓' : '✕'}</span>
+          <span class="criteria-label">${explanation.tapeCriteria.title}:</span>
+          <span class="criteria-val">${explanation.tapeCriteria.status}</span>
         </div>
-      `;
+        <div class="criteria-item ${explanation.stateCriteria.pass ? 'pass' : 'fail'}">
+          <span class="criteria-icon">${explanation.stateCriteria.pass ? '✓' : '✕'}</span>
+          <span class="criteria-label">${explanation.stateCriteria.title}:</span>
+          <span class="criteria-val">${explanation.stateCriteria.status}</span>
+        </div>
+        <div class="criteria-item ${explanation.stackCriteria.pass ? 'pass' : 'neutral'}">
+          <span class="criteria-icon">${explanation.stackCriteria.pass ? '✓' : '•'}</span>
+          <span class="criteria-label">${explanation.stackCriteria.title}:</span>
+          <span class="criteria-val">${explanation.stackCriteria.status}</span>
+        </div>
+      </div>
+
+      <div class="id-why-box why-${explanation.whyType}">
+        <div class="why-title">
+          <span class="why-icon">${isRejected ? '✕' : (isAccepted ? '✓' : 'ℹ')}</span>
+          <span>${explanation.whyTitle}</span>
+        </div>
+        <div class="why-mechanical">${explanation.mechanicalReason}</div>
+        <div class="why-mathematical">${explanation.mathematicalReason}</div>
+      </div>
+    `;
+  }
+}
+
+export function explainPdaConfig(config, originalInput, isRejected, isAccepted, failureNote, preset, activeNode) {
+  const inputVal = originalInput || '';
+  const remaining = inputVal.slice(config.headIndex) || 'ε';
+  const stack = config.stack || [];
+  const stackTop = stack[0] || 'empty';
+  const stackStr = stack.length > 0 ? stack.join('') : 'ε';
+  const state = config.state;
+  const isInputConsumed = config.headIndex >= inputVal.length;
+  const isStateAccept = Boolean(preset?.acceptStates?.includes(state));
+  const acceptMode = preset?.acceptMode || 'state';
+  const isStackEmpty = stack.length === 0 || (stack.length === 1 && stack[0] === 'Z0' && acceptMode === 'empty');
+
+  // Tape criteria
+  const tapeCriteria = {
+    pass: isInputConsumed,
+    title: 'Tape Input',
+    status: isInputConsumed ? 'All consumed (w = ε)' : `Remaining: "${remaining}"`
+  };
+
+  // State criteria
+  const stateCriteria = {
+    pass: isStateAccept,
+    title: 'State in F',
+    status: isStateAccept ? `${state} ∈ F (Accepting)` : `${state} ∉ F (Non-accepting)`
+  };
+
+  // Stack criteria
+  let stackCriteria = {
+    pass: true,
+    title: 'Stack',
+    status: `[ ${stackStr} ]`
+  };
+  if (acceptMode === 'empty') {
+    stackCriteria.pass = isStackEmpty;
+    stackCriteria.status = isStackEmpty ? 'Empty (Pass)' : `[ ${stackStr} ] (Not empty)`;
+  } else if (acceptMode === 'both') {
+    stackCriteria.pass = isStackEmpty;
+    stackCriteria.status = isStackEmpty ? 'Empty (Pass)' : `[ ${stackStr} ] (Not empty)`;
+  }
+
+  // Generate Why Accepted / Rejected
+  let whyTitle = '';
+  let whyBadge = '';
+  let whyType = 'running'; // 'rejected' | 'accepted' | 'running'
+  let mechanicalReason = '';
+  let mathematicalReason = '';
+
+  const presetId = preset?.id || '';
+
+  if (isRejected) {
+    whyType = 'rejected';
+    whyTitle = 'Why Rejected (w ∉ L):';
+    whyBadge = '✕ Rejected (w ∉ L)';
+
+    // 1. Mechanical reason
+    if (!isInputConsumed) {
+      const nextChar = remaining[0];
+      mechanicalReason = `PDA halted in state '${state}' with unread input remaining ("${remaining}"). There is no transition defined for symbol '${nextChar}' with stack top '${stackTop}'.`;
+    } else if (!isStateAccept) {
+      mechanicalReason = `All tape symbols were consumed (w = ε), but the PDA halted in non-accepting state '${state}'. Under final-state acceptance, the automaton must reach an accepting state in {${preset?.acceptStates?.join(', ') || 'q2'}}.`;
+    } else if (acceptMode === 'empty' && !isStackEmpty) {
+      mechanicalReason = `All input symbols were consumed, but the stack is not empty ([ ${stackStr} ]). Acceptance by empty stack requires popping all stack symbols.`;
     } else {
-      this.currentIdEl.innerHTML = `
-        <div class="id-main-formula">${baseFormula}</div>
-      `;
+      mechanicalReason = failureNote || 'No accepting transition path exists for this input string.';
+    }
+
+    // 2. Mathematical reason based on preset
+    if (presetId.startsWith('0n1_2n')) {
+      const count0 = (inputVal.match(/0/g) || []).length;
+      const count1 = (inputVal.match(/1/g) || []).length;
+      const first1 = inputVal.indexOf('1');
+      const last0 = inputVal.lastIndexOf('0');
+
+      if (first1 !== -1 && last0 !== -1 && first1 < last0) {
+        mathematicalReason = `Language requires pattern 0ⁿ 1²ⁿ. Here, '0' appears after '1' (symbols out of order).`;
+      } else if (count0 === 0) {
+        mathematicalReason = `Language condition n ≥ 1 requires at least one '0' and two '1's (found 0 zeros).`;
+      } else if (count1 !== 2 * count0) {
+        mathematicalReason = `Count mismatch: string has ${count0} zero(s) (n = ${count0}), which requires exactly ${2 * count0} ones (2n = ${2 * count0}), but contains ${count1} one(s) (${count1 > 2 * count0 ? `${count1 - 2 * count0} extra` : `${2 * count0 - count1} missing`}).`;
+      } else {
+        mathematicalReason = `String violates the language condition L = {0ⁿ 1²ⁿ | n ≥ 1}.`;
+      }
+    } else if (presetId === '0n1n') {
+      const count0 = (inputVal.match(/0/g) || []).length;
+      const count1 = (inputVal.match(/1/g) || []).length;
+      if (count0 === 0) {
+        mathematicalReason = `Condition n ≥ 1 requires at least one '0' and one '1'.`;
+      } else if (count0 !== count1) {
+        mathematicalReason = `Count mismatch: N₀ = ${count0} ≠ N₁ = ${count1}. Equal counts of 0s and 1s are required.`;
+      } else {
+        mathematicalReason = `String violates pattern 0ⁿ 1ⁿ.`;
+      }
+    } else if (presetId === 'wcw_r') {
+      if (!inputVal.includes('c')) {
+        mathematicalReason = `Missing center marker 'c'. Language requires format w c wᴿ with a single center marker.`;
+      } else {
+        const parts = inputVal.split('c');
+        if (parts.length > 2) {
+          mathematicalReason = `Multiple center markers 'c' found. Language requires exactly one marker 'c'.`;
+        } else {
+          const w1 = parts[0];
+          const w2 = parts[1];
+          const w1Rev = w1.split('').reverse().join('');
+          if (w2 !== w1Rev) {
+            mathematicalReason = `Palindrome mismatch: left side "${w1}" reversed is "${w1Rev}", which does not match right side "${w2}".`;
+          }
+        }
+      }
+    } else if (presetId === 'balanced_parentheses') {
+      mathematicalReason = `Parentheses are unbalanced or a closing parenthesis appeared without a matching opening parenthesis.`;
+    } else {
+      mathematicalReason = failureNote || `String does not satisfy the automaton language constraints.`;
+    }
+  } else if (isAccepted) {
+    whyType = 'accepted';
+    whyTitle = 'Why Accepted (w ∈ L):';
+    whyBadge = '✓ Accepted (w ∈ L)';
+
+    mechanicalReason = `All input symbols were consumed (w = ε), the stack was balanced, and the PDA reached final state '${state}' ∈ F.`;
+
+    if (presetId.startsWith('0n1_2n')) {
+      const count0 = (inputVal.match(/0/g) || []).length;
+      mathematicalReason = `Satisfies L = {0ⁿ 1²ⁿ}: Contains ${count0} zero(s) followed by exactly ${2 * count0} one(s) (n = ${count0}, 2n = ${2 * count0}). Every '0' pushed two 'X's and every '1' popped one 'X', completely balancing the stack.`;
+    } else if (presetId === '0n1n') {
+      const count0 = (inputVal.match(/0/g) || []).length;
+      mathematicalReason = `Satisfies L = {0ⁿ 1ⁿ}: Contains exactly ${count0} zero(s) and ${count0} one(s) (n = ${count0}). All pushed symbols were matched and popped.`;
+    } else if (presetId === 'wcw_r') {
+      const parts = inputVal.split('c');
+      mathematicalReason = `Satisfies L = {w c wᴿ}: Substring "${parts[0]}" before 'c' is the exact reverse of "${parts[1]}" after 'c'.`;
+    } else if (presetId === 'balanced_parentheses') {
+      mathematicalReason = `Satisfies Balanced Parentheses: Every open parenthesis '(' was successfully paired and closed by a matching ')'.`;
+    } else {
+      mathematicalReason = `Input successfully satisfied all transition and acceptance constraints.`;
+    }
+  } else {
+    // In progress or Step 0
+    whyType = 'running';
+    const isStep0 = config.step === 0;
+    whyTitle = isStep0 ? 'Simulation Initialized:' : `Step ${config.step} in progress:`;
+    whyBadge = isStep0 ? 'Ready at Step 0' : `Step ${config.step} (Running)`;
+
+    if (isStep0) {
+      mechanicalReason = `Tape is initialized at index 0. Current state is start state '${state}', and stack contains initial symbol [ ${stackStr} ].`;
+      mathematicalReason = `Click Play or Step (→) to observe transition steps, stack pushes/pops, and state changes.`;
+    } else {
+      mechanicalReason = activeNode?.note || `Processing input. Remaining tape: "${remaining}".`;
+      mathematicalReason = `To accept, the PDA must consume all remaining symbols "${remaining}" and enter an accept state in {${preset?.acceptStates?.join(', ') || 'q2'}}.`;
     }
   }
+
+  return {
+    remaining,
+    stackStr,
+    tapeCriteria,
+    stateCriteria,
+    stackCriteria,
+    whyTitle,
+    whyBadge,
+    whyType,
+    mechanicalReason,
+    mathematicalReason
+  };
 }

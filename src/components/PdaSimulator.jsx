@@ -76,12 +76,17 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
     const isAccepted = Boolean(config.status === 'accepted' || (curIdx === trace.length - 1 && !isRejected && engine.checkAcceptance()));
     const isReady = curIdx === 0 && !isRejected && !isAccepted;
 
-    setSimStatus({ isRejected, isAccepted, isReady });
+    setSimStatus(prev => {
+      if (prev.isRejected === isRejected && prev.isAccepted === isAccepted && prev.isReady === isReady) {
+        return prev;
+      }
+      return { isRejected, isAccepted, isReady };
+    });
 
     vis.renderDiagram(currentPreset, config.state, activeNode?.transition, isRejected, isAccepted);
     vis.renderStack(config.stack);
     vis.renderTape(engine.originalInput, config.headIndex, isRejected, isAccepted);
-    vis.updateCurrentID(config, engine.originalInput, isRejected, isAccepted, activeNode?.haltReason || activeNode?.note);
+    vis.updateCurrentID(config, engine.originalInput, isRejected, isAccepted, activeNode?.haltReason || activeNode?.note, currentPreset, activeNode);
     vis.renderTraceTable(trace, curIdx, (stepIdx) => {
       stopAutoPlay();
       engine.jumpToStep(stepIdx);
@@ -142,11 +147,6 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
       if (playTimerRef.current) clearInterval(playTimerRef.current);
     };
   }, [selectedPresetId]);
-
-  // Always keep DOM views populated and in sync after any component re-render
-  useEffect(() => {
-    syncPDAView();
-  });
 
   // Keyboard navigation
   useEffect(() => {

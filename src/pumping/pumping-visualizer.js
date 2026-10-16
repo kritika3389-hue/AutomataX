@@ -119,7 +119,7 @@ export class PumpingVisualizer {
     }
   }
 
-  renderPumpedResult(pumpData) {
+  renderPumpedResult(pumpData, pumpingEngine = null) {
     if (this.valI) this.valI.textContent = pumpData.i;
     if (this.sliderI) this.sliderI.value = pumpData.i;
 
@@ -173,33 +173,80 @@ export class PumpingVisualizer {
       this.balanceBarsEl.innerHTML = barsHtml;
     }
 
-    // Result banner
+    // Result banner: Comprehensive Configuration & Why Accepted/Rejected Breakdown
     if (this.resultBannerEl) {
+      const p = pumpingEngine ? pumpingEngine.p : 3;
+      const validation = pumpingEngine ? pumpingEngine.validateConditions() : { cond1: { pass: true }, cond2: { pass: true } };
+      const cond1Pass = validation.cond1.pass;
+      const cond2Pass = validation.cond2.pass;
+      const vwxLen = (pumpData.v?.length || 0) + (pumpData.w?.length || 0) + (pumpData.x?.length || 0);
+      const vxLen = (pumpData.v?.length || 0) + (pumpData.x?.length || 0);
+
+      const countsKeys = pumpData.counts ? Object.keys(pumpData.counts) : [];
+      let countsHtml = '';
+      if (countsKeys.length > 0) {
+        countsHtml = `<div class="why-counts-badges">` +
+          countsKeys.map(k => `<span class="why-count-pill"><span class="cnt-sym">N<sub>${k}</sub></span> = <b>${pumpData.counts[k]}</b></span>`).join('') +
+          `</div>`;
+      }
+
+      let whyExplanation = '';
+      let proofConclusion = '';
+
       if (!pumpData.inLang) {
         this.resultBannerEl.className = 'result-banner result-contradiction';
-        this.resultBannerEl.innerHTML = `
-          <div class="banner-icon">⚡</div>
-          <div class="banner-body">
-            <h4>Contradiction Reached: s_${pumpData.i} ∉ L !</h4>
-            <p>${pumpData.reason}</p>
-            <div class="banner-conclusion">
-              Since <strong>uv<sup>${pumpData.i}</sup>wx<sup>${pumpData.i}</sup>y ∉ L</strong>, the Pumping Lemma condition is broken!
-            </div>
-          </div>
-        `;
+        whyExplanation = `Pumping with <b>i = ${pumpData.i}</b> produced string <code>s_${pumpData.i} = "${pumpData.pumpedString || 'ε'}"</code>. <b>${pumpData.reason}</b>. Because |vwx| ≤ p (${p}), the substring vwx cannot reach across all required distinct symbol blocks of the string. Thus, pumping alters only a subset of symbol counts while leaving untouched symbols fixed, permanently destroying required symbol equality.`;
+        proofConclusion = `Formal Proof Verdict: The CFL Pumping Lemma states that if L were context-free, s_i MUST belong to L for EVERY integer i ≥ 0. Since s_${pumpData.i} ∉ L, this partition fails. By adversary exhaustive search, every possible partition fails; therefore, the language is PROVEN NOT CONTEXT-FREE. ∎`;
       } else {
         this.resultBannerEl.className = 'result-banner result-valid';
-        this.resultBannerEl.innerHTML = `
-          <div class="banner-icon">ℹ</div>
-          <div class="banner-body">
-            <h4>String s_${pumpData.i} ∈ L (No contradiction yet)</h4>
-            <p>${pumpData.reason}</p>
-            <div class="banner-hint">
-              Try setting <strong>i = 2</strong> or <strong>i = 0</strong> to break symbol equality!
+        whyExplanation = `For <b>i = ${pumpData.i}</b>, the pumped string <code>s_${pumpData.i} = "${pumpData.pumpedString || 'ε'}"</code> currently satisfies the language condition (<b>${pumpData.reason}</b>).`;
+        proofConclusion = `Pumping Lemma Requirement: To prove a language is context-free, s_i must remain in L for ALL i ≥ 0. However, this language is non-CFL! Try setting i = 2 (pump up) or i = 0 (pump down) to break equality and witness the contradiction.`;
+      }
+
+      this.resultBannerEl.innerHTML = `
+        <div class="pumping-config-breakdown">
+          <!-- 1. Configuration ID -->
+          <div class="pumping-config-header">
+            <div class="pumping-config-title">
+              <span class="pumping-tag-badge">CONFIGURATION</span>
+              <code class="pumping-config-tuple">(u="${pumpData.u || 'ε'}", v="${pumpData.v || 'ε'}", w="${pumpData.w || 'ε'}", x="${pumpData.x || 'ε'}", y="${pumpData.y || 'ε'}", i=${pumpData.i})</code>
+            </div>
+            <span class="pumping-verdict-chip ${pumpData.inLang ? 'chip-success' : 'chip-danger'}">
+              ${pumpData.inLang ? '✓ In Language (s_i ∈ L)' : '⚡ Contradiction (s_i ∉ L — REJECTED)'}
+            </span>
+          </div>
+
+          <!-- 2. Three Formal Criteria Checklist -->
+          <div class="pumping-criteria-checklist">
+            <div class="pumping-crit-item ${cond1Pass ? 'pass' : 'fail'}">
+              <span class="crit-icon">${cond1Pass ? '✓' : '✕'}</span>
+              <span class="crit-label">Condition 1 (|vwx| ≤ p):</span>
+              <span class="crit-val">|vwx| = ${vwxLen} ≤ ${p} (${cond1Pass ? 'Pass' : 'Violation'})</span>
+            </div>
+            <div class="pumping-crit-item ${cond2Pass ? 'pass' : 'fail'}">
+              <span class="crit-icon">${cond2Pass ? '✓' : '✕'}</span>
+              <span class="crit-label">Condition 2 (|vx| ≥ 1):</span>
+              <span class="crit-val">|vx| = ${vxLen} ≥ 1 (${cond2Pass ? 'Pass' : 'Violation'})</span>
+            </div>
+            <div class="pumping-crit-item ${pumpData.inLang ? 'pass' : 'fail'}">
+              <span class="crit-icon">${pumpData.inLang ? '✓' : '⚡'}</span>
+              <span class="crit-label">Condition 3 (s_i ∈ L):</span>
+              <span class="crit-val">${pumpData.inLang ? `s_${pumpData.i} ∈ L (Holds for i=${pumpData.i})` : `s_${pumpData.i} ∉ L (Contradiction)`}</span>
             </div>
           </div>
-        `;
-      }
+
+          <!-- 3. "Why Accepted / Rejected" Explanation -->
+          <div class="pumping-why-box ${pumpData.inLang ? 'why-valid' : 'why-contradiction'}">
+            <div class="pumping-why-title">
+              <span class="pumping-why-icon">${pumpData.inLang ? 'ℹ' : '⚡'}</span>
+              <span>${pumpData.inLang ? `Why s_${pumpData.i} is Accepted for i = ${pumpData.i}:` : `Why s_${pumpData.i} is Rejected from L (Contradiction Proven):`}</span>
+            </div>
+            ${countsHtml}
+            <p class="pumping-why-text">${whyExplanation}</p>
+            <div class="pumping-proof-note">${proofConclusion}</div>
+          </div>
+        </div>
+      `;
     }
 
     // Case Analysis box

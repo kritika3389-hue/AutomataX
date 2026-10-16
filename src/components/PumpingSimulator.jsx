@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { PUMPING_PRESETS, refreshPumpingPresets } from '../pumping/pumping-presets.js';
 import { PumpingEngine } from '../pumping/pumping-engine.js';
 import { PumpingVisualizer } from '../pumping/pumping-visualizer.js';
@@ -53,7 +53,7 @@ export default function PumpingSimulator({
 
     // 3. Pumped Result
     const pumpData = engine.getPumpedString();
-    vis.renderPumpedResult(pumpData);
+    vis.renderPumpedResult(pumpData, engine);
 
     setCurrentI(engine.pumpI);
     setCurrentP(engine.p);
@@ -169,6 +169,34 @@ export default function PumpingSimulator({
     };
   }, []);
 
+  const initialStringValidity = useMemo(() => {
+    const val = customStringInput.trim();
+    if (!val) return { isValid: false, inLang: false, message: 'Please enter a test string.' };
+    const membership = currentPreset.checkMembership ? currentPreset.checkMembership(val) : { inLang: true, reason: 'Valid string' };
+    const len = val.length;
+    const p = currentP;
+    const isLenOk = len >= p;
+    if (!membership.inLang) {
+      return {
+        isValid: false,
+        inLang: false,
+        message: `String s = "${val}" does not belong to ${currentPreset.name} (${membership.reason}). Pumping Lemma requires starting with s ∈ L!`
+      };
+    }
+    if (!isLenOk) {
+      return {
+        isValid: false,
+        inLang: true,
+        message: `String length |s| = ${len} is shorter than pumping length p = ${p}. Pumping Lemma requires |s| ≥ p to guarantee parse tree repetition.`
+      };
+    }
+    return {
+      isValid: true,
+      inLang: true,
+      message: `Valid starting string: s = "${val}" ∈ L with length |s| = ${len} ≥ p (${p}). Ready to partition into uvwxy!`
+    };
+  }, [customStringInput, currentPreset, currentP]);
+
   const iOptions = [
     { i: 0, label: 'i = 0', hint: 'pump down' },
     { i: 1, label: 'i = 1', hint: 'original' },
@@ -259,6 +287,13 @@ export default function PumpingSimulator({
                 Apply
               </button>
             </div>
+
+            {initialStringValidity && (
+              <div className={`pumping-string-validity-banner ${initialStringValidity.isValid ? 'valid' : 'invalid'}`}>
+                <span className="validity-icon">{initialStringValidity.isValid ? '✓' : '✕'}</span>
+                <span className="validity-text">{initialStringValidity.message}</span>
+              </div>
+            )}
 
             {/* Partition Ribbon + Sliders */}
             <div className="ribbon-wrapper">
