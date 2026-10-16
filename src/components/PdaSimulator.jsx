@@ -11,6 +11,8 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState(600);
   const [testCases, setTestCases] = useState(() => PDA_PRESETS[0].testCases || []);
+  const [graphViewMode, setGraphViewMode] = useState('graph');
+  const [activeTransition, setActiveTransition] = useState(null);
 
   // Element Refs for PDAVisualizer
   const svgRef = useRef(null);
@@ -46,6 +48,7 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
     const trace = engine.precomputedTrace;
     const curIdx = engine.currentTraceIndex;
     const activeNode = trace[curIdx];
+    setActiveTransition(activeNode?.transition || null);
 
     vis.renderDiagram(currentPreset, config.state, activeNode?.transition);
     vis.renderStack(config.stack);
@@ -312,185 +315,203 @@ export default function PdaSimulator({ onToast, onOpenCustomModal }) {
         </div>
       </div>
 
-      {/* Workspace: Input + Graph (left) | Stack (right) */}
+      {/* Workspace: Input Tape & ID (Top Row) | Graph & Stack (Bottom Row) */}
       <div className="pda-workspace">
-        <div className="pda-main-column">
-          {/* Input Tape */}
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <Icon name="type" size={16} className="card-icon" />
-                <span>Input Tape</span>
-              </div>
-              <span className="chip chip-neutral" id="pda-accept-mode-tag">
-                Accepts by: <b>{acceptLabel}</b>
-              </span>
+        {/* Row 1, Col 1: Input Tape */}
+        <div className="card tape-card">
+          <div className="card-header">
+            <div className="card-title">
+              <Icon name="type" size={16} className="card-icon" />
+              <span>Input Tape</span>
             </div>
-
-            <div className="input-row">
-              <div className="input-with-prefix">
-                <span className="input-prefix">w =</span>
-                <input
-                  type="text"
-                  id="pda-input-string"
-                  className="mono-input"
-                  value={inputString}
-                  onChange={(e) => setInputString(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleTraceInput()}
-                  placeholder="e.g. 001111"
-                  spellCheck="false"
-                />
-              </div>
-              <button id="btn-trace-input" className="btn btn-primary" onClick={handleTraceInput}>
-                <Icon name="play" size={14} /> Trace
-              </button>
-              <button
-                id="btn-load-target-str"
-                className="btn btn-secondary"
-                title={`Load default string ${currentPreset.defaultInput || '001111'}`}
-                onClick={handleLoadTarget}
-              >
-                Default
-              </button>
-              <button
-                id="btn-add-test-case"
-                className="btn btn-secondary"
-                title="Save this string as a test case"
-                onClick={handleAddTestCase}
-              >
-                <Icon name="plus" size={14} /> Save as test
-              </button>
-            </div>
-
-            <div className="tape-strip" id="tape-cells-container" ref={tapeCellsRef} />
+            <span className="chip chip-neutral" id="pda-accept-mode-tag">
+              Accepts by: <b>{acceptLabel}</b>
+            </span>
           </div>
 
-          {/* State Transition Graph */}
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <Icon name="graph" size={16} className="card-icon" />
-                <span>State Transition Graph</span>
-              </div>
-              <div className="legend">
-                <span className="legend-item"><i className="legend-dot dot-active" /> Active</span>
-                <span className="legend-item"><i className="legend-dot dot-accept" /> Accepting</span>
+          <div className="input-row">
+            <div className="input-with-prefix">
+              <span className="input-prefix">w =</span>
+              <input
+                type="text"
+                id="pda-input-string"
+                className="mono-input"
+                value={inputString}
+                onChange={(e) => setInputString(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleTraceInput()}
+                placeholder="e.g. 001111"
+                spellCheck="false"
+              />
+            </div>
+            <button id="btn-trace-input" className="btn btn-primary" onClick={handleTraceInput}>
+              <Icon name="play" size={14} /> Trace
+            </button>
+            <button
+              id="btn-load-target-str"
+              className="btn btn-secondary"
+              title={`Load default string ${currentPreset.defaultInput || '001111'}`}
+              onClick={handleLoadTarget}
+            >
+              Default
+            </button>
+            <button
+              id="btn-add-test-case"
+              className="btn btn-secondary"
+              title="Save this string as a test case"
+              onClick={handleAddTestCase}
+            >
+              <Icon name="plus" size={14} /> Save as test
+            </button>
+          </div>
+
+          <div className="tape-strip" id="tape-cells-container" ref={tapeCellsRef} />
+        </div>
+
+        {/* Row 1, Col 2: Small Container (Instantaneous Description / Current Configuration) */}
+        <div className="card id-card">
+          <div className="card-header">
+            <div className="card-title">
+              <Icon name="info" size={16} className="card-icon" />
+              <span>Configuration</span>
+            </div>
+            <span className="chip chip-neutral">(q, w, γ)</span>
+          </div>
+
+          <div className="id-card-body">
+            <div className="id-label">Instantaneous Description</div>
+            <div className="current-id-box">
+              <div id="pda-current-id-text" className="current-id-text" ref={currentIdRef}>
+                ( q₀,  "{inputString}",  [ Z₀ ] )
               </div>
             </div>
+            <p className="id-guide-hint">
+              Current state <b>q</b>, unread tape <b>w</b>, and stack <b>γ</b> (top-to-bottom).
+            </p>
+          </div>
+        </div>
 
-            <div className="diagram-wrapper">
-              <svg id="pda-diagram-svg" className="diagram-svg" ref={svgRef} />
+        {/* Row 2, Col 1: State Transition Graph */}
+        <div className="card state-diagram-card">
+          <div className="card-header">
+            <div className="card-title">
+              <Icon name="graph" size={16} className="card-icon" />
+              <span>State Transition Graph</span>
+            </div>
+            <div className="legend">
+              <span className="legend-item"><i className="legend-dot dot-active" /> Active</span>
+              <span className="legend-item"><i className="legend-dot dot-accept" /> Accepting</span>
+            </div>
+          </div>
+
+          <div className="diagram-wrapper">
+            <svg id="pda-diagram-svg" className="diagram-svg" ref={svgRef} />
+          </div>
+
+          {/* Playback Controls */}
+          <div className="playback-controls">
+            <div className="control-buttons">
+              <button
+                id="ctrl-reset"
+                className="ctrl-btn"
+                title="Reset (R)"
+                onClick={() => {
+                  stopAutoPlay();
+                  engineRef.current.reset(inputString.trim());
+                  syncPDAView();
+                }}
+              >
+                <Icon name="reset" size={15} />
+              </button>
+              <button
+                id="ctrl-step-back"
+                className="ctrl-btn"
+                title="Step back (←)"
+                onClick={() => {
+                  stopAutoPlay();
+                  engineRef.current.stepBackward();
+                  syncPDAView();
+                }}
+              >
+                <Icon name="chevronLeft" size={17} />
+              </button>
+              <button
+                id="ctrl-play-pause"
+                className={`ctrl-btn btn-play ${isPlaying ? 'playing' : ''}`}
+                title="Play / Pause (Space)"
+                onClick={() => {
+                  if (isPlaying) stopAutoPlay();
+                  else startAutoPlay();
+                }}
+              >
+                <Icon name={isPlaying ? 'pause' : 'play'} size={16} />
+              </button>
+              <button
+                id="ctrl-step-forward"
+                className="ctrl-btn"
+                title="Step forward (→)"
+                onClick={() => {
+                  stopAutoPlay();
+                  engineRef.current.stepForward();
+                  syncPDAView();
+                }}
+              >
+                <Icon name="chevronRight" size={17} />
+              </button>
+              <button
+                id="ctrl-run-end"
+                className="ctrl-btn"
+                title="Run to end"
+                onClick={() => {
+                  stopAutoPlay();
+                  engineRef.current.runToEnd();
+                  syncPDAView();
+                }}
+              >
+                <Icon name="fastForward" size={15} />
+              </button>
             </div>
 
-            {/* Playback Controls */}
-            <div className="playback-controls">
-              <div className="control-buttons">
-                <button
-                  id="ctrl-reset"
-                  className="ctrl-btn"
-                  title="Reset (R)"
-                  onClick={() => {
-                    stopAutoPlay();
-                    engineRef.current.reset(inputString.trim());
-                    syncPDAView();
-                  }}
-                >
-                  <Icon name="reset" size={15} />
-                </button>
-                <button
-                  id="ctrl-step-back"
-                  className="ctrl-btn"
-                  title="Step back (←)"
-                  onClick={() => {
-                    stopAutoPlay();
-                    engineRef.current.stepBackward();
-                    syncPDAView();
-                  }}
-                >
-                  <Icon name="chevronLeft" size={17} />
-                </button>
-                <button
-                  id="ctrl-play-pause"
-                  className={`ctrl-btn btn-play ${isPlaying ? 'playing' : ''}`}
-                  title="Play / Pause (Space)"
-                  onClick={() => {
-                    if (isPlaying) stopAutoPlay();
-                    else startAutoPlay();
-                  }}
-                >
-                  <Icon name={isPlaying ? 'pause' : 'play'} size={16} />
-                </button>
-                <button
-                  id="ctrl-step-forward"
-                  className="ctrl-btn"
-                  title="Step forward (→)"
-                  onClick={() => {
-                    stopAutoPlay();
-                    engineRef.current.stepForward();
-                    syncPDAView();
-                  }}
-                >
-                  <Icon name="chevronRight" size={17} />
-                </button>
-                <button
-                  id="ctrl-run-end"
-                  className="ctrl-btn"
-                  title="Run to end"
-                  onClick={() => {
-                    stopAutoPlay();
-                    engineRef.current.runToEnd();
-                    syncPDAView();
-                  }}
-                >
-                  <Icon name="fastForward" size={15} />
-                </button>
-              </div>
+            <div className="kbd-hints">
+              <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> step <kbd>R</kbd> reset
+            </div>
 
-              <div className="kbd-hints">
-                <kbd>Space</kbd> play <kbd>←</kbd><kbd>→</kbd> step <kbd>R</kbd> reset
-              </div>
-
-              <div className="speed-control">
-                <label htmlFor="pda-speed-select">Speed</label>
-                <select
-                  id="pda-speed-select"
-                  className="speed-select"
-                  value={playSpeed}
-                  onChange={(e) => {
-                    const sp = parseInt(e.target.value, 10);
-                    setPlaySpeed(sp);
-                    if (isPlaying) {
-                      stopAutoPlay();
-                      startAutoPlay();
-                    }
-                  }}
-                >
-                  <option value={1200}>0.5×</option>
-                  <option value={600}>1×</option>
-                  <option value={300}>2×</option>
-                </select>
-              </div>
+            <div className="speed-control">
+              <label htmlFor="pda-speed-select">Speed</label>
+              <select
+                id="pda-speed-select"
+                className="speed-select"
+                value={playSpeed}
+                onChange={(e) => {
+                  const sp = parseInt(e.target.value, 10);
+                  setPlaySpeed(sp);
+                  if (isPlaying) {
+                    stopAutoPlay();
+                    startAutoPlay();
+                  }
+                }}
+              >
+                <option value={1200}>0.5×</option>
+                <option value={600}>1×</option>
+                <option value={300}>2×</option>
+              </select>
             </div>
           </div>
         </div>
 
-        {/* Stack + Instantaneous Description */}
+        {/* Row 2, Col 2: Stack Container (Parallel to State Transition Graph) */}
         <aside className="card stack-card">
           <div className="card-header">
             <div className="card-title">
               <Icon name="layers" size={16} className="card-icon" />
               <span>Stack</span>
             </div>
-            <span id="stack-count-badge" className="chip chip-primary" ref={stackCountRef} />
+            <span id="stack-count-badge" className="chip chip-primary" ref={stackCountRef}>
+              Size: 1
+            </span>
           </div>
 
           <div className="stack-tube-outer">
             <div className="stack-tube" id="stack-tube-elements" ref={stackTubeRef} />
-          </div>
-
-          <div className="id-status-card">
-            <div className="id-label">Instantaneous description (q, w, γ)</div>
-            <div id="pda-current-id-text" className="current-id-text" ref={currentIdRef} />
           </div>
         </aside>
       </div>
